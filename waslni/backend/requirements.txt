@@ -1,0 +1,35 @@
+# FastAPI
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+gunicorn==23.0.0
+
+# SQLAlchemy + Alembic
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.29.0
+alembic==1.13.2
+
+# Pydantic
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[argon2]==1.7.4
+bcrypt==4.2.0  # for any legacy bcrypt hashes; argon2 is the default
+
+# HTTP / Networking
+httpx==0.27.2
+python-multipart==0.0.12
+
+# Rate limiting
+slowapi==0.1.9
+
+# Logging
+structlog==24.4.0
+
+# Environment
+python-dotenv==1.0.1
+
+# Testing (also in requirements-dev.txt but kept here for CI simplicity)
+pytest==8.3.3
+pytest-asyncio==0.24.0

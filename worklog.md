@@ -336,3 +336,81 @@ Stage Summary:
   * Edit screen pre-fills form from customer flow and re-emits when Room updates (form stays in sync if customer changes from another flow)
   * Location re-capture is a separate button in Edit (not automatic) because we want explicit user intent for GPS updates
 - Next: Phase 7 (Backend Foundation) — FastAPI project setup, PostgreSQL schema migrations, docker-compose, Alembic, seed script, /health endpoint.
+
+---
+Task ID: phase-7
+Agent: main
+Task: Phase 7 — Backend Foundation: Build the FastAPI backend skeleton with config, async DB, security, unified errors, SQLAlchemy models, Alembic migration, Docker, seed script, and initial tests.
+
+Work Log:
+- Created backend/ directory tree: app/{api,core,models,schemas,services,repositories,middleware,utils}, migrations/versions, scripts, tests.
+- Wrote requirements.txt — FastAPI 0.115 + uvicorn + SQLAlchemy 2.0 async + asyncpg + alembic + Pydantic v2 + pydantic-settings + python-jose + passlib[argon2] + httpx + slowapi + structlog.
+- Wrote requirements-dev.txt — pytest + pytest-asyncio + ruff + black + mypy + ipython.
+- Wrote .env.example with all env vars documented (APP, DATABASE, JWT, CORS, RATE_LIMIT, MAPBOX, FCM, LOG).
+- Wrote app/core/config.py — Pydantic Settings with case_sensitive=False, env_file=".env". Validators: JWT_SECRET warns if still default. Properties: cors_origins_list, is_production, is_development. Singleton via @lru_cache get_settings().
+- Wrote app/core/database.py — async engine (asyncpg, pool_pre_ping=True, pool_size=10, max_overflow=20), AsyncSessionLocal factory, get_db() FastAPI dependency (yields session, commits on success, rolls back on error), check_db_connection() for /health probe. Base declarative class for all models.
+- Wrote app/core/security.py:
+  * Argon2id password hashing via passlib.CryptContext (memory_cost=64MB, time_cost=3, parallelism=4 — OWASP-recommended).
+  * hash_password() + verify_password() (verify never raises — returns False on any failure).
+  * create_access_token() (15min default) + create_refresh_token() (30d default, includes jti).
+  * decode_token() raises typed errors: TokenExpiredError vs TokenInvalidError.
+- Wrote app/core/exceptions.py:
+  * AppError base class with status_code, code, message, details.
+  * 9 subclasses: BadRequestError, UnauthorizedError, ForbiddenError, NotFoundError, ConflictError, ValidationError, RateLimitError, InternalError, ServiceUnavailableError.
+  * ErrorCodes class with 20 string constants (INVALID_CREDENTIALS, TOKEN_EXPIRED, CUSTOMER_NOT_FOUND, DUPLICATE_PHONE, INVALID_STATE_TRANSITION, IDEMPOTENCY_CONFLICT, STALE_UPDATE, ...).
+  * format_error_response() helper producing the unified {error: {code, message, details}} shape.
+- Wrote app/core/logging.py — structlog JSON formatter for production, plain text for dev. Bridges stdlib logging → structlog.
+- Wrote 6 SQLAlchemy models:
+  * user.py — id (UUID PK), username (unique), password_hash, role (CHECK driver/admin), is_active, timestamps, last_login_at.
+  * customer.py — id, driver_id (FK CASCADE), name, phone, latitude (NUMERIC 10,7), longitude, accuracy, timestamps. UNIQUE(driver_id, phone). CHECK on lat/lng range, name/phone length, accuracy non-negative.
+  * delivery.py — id, customer_id (FK RESTRICT), driver_id (FK CASCADE), status, timestamps. CHECK on status enum + timestamp/state consistency (PENDING has all nulls, DELIVERED has started+completed, etc.).
+  * refresh_token.py — id, user_id (FK CASCADE), token_hash (unique), expires_at, revoked, created_at, device_info.
+  * audit_log.py — id, user_id (FK SET NULL), action, entity_type, entity_id, metadata (JSONB), ip_address, created_at.
+  * idempotency_key.py — id, key (unique), user_id (FK CASCADE), endpoint, request_hash, response (JSONB), status_code, created_at, expires_at (default +24h).
+  * models/__init__.py re-exports all for convenient imports.
+- Wrote app/api/v1.py — empty router with /health inside /api/v1.
+- Wrote app/main.py — create_app() factory with lifespan (configures logging), CORS middleware (origins from settings), exception handlers (AppError → unified response, SQLAlchemyError → 500, generic Exception → 500), root /health endpoint (DB-aware), include v1_router under /api/v1. Docs/redoc/openapi disabled in production.
+- Wrote migrations/env.py — async Alembic env, reads URL from settings, target_metadata = Base.metadata, compare_type=True.
+- Wrote migrations/script.py.mako — Alembic template.
+- Wrote migrations/versions/0001_initial_schema.py — single migration creating all 6 tables with their indexes, FKs, UNIQUE constraints, and CHECK constraints matching the ORM models.
+- Wrote alembic.ini — standard config pointing to migrations/ with placeholder URL (env.py overrides it).
+- Wrote Dockerfile — multi-stage build: builder stage installs deps with build-essential, runtime stage uses python:3.11-slim with libpq5 only. Non-root user (waselni, uid 1000). HEALTHCHECK hits /health.
+- Wrote docker-compose.yml — PostgreSQL 15-alpine with healthcheck + FastAPI backend with hot-reload via --reload and volume mount. Backend depends on db healthcheck.
+- Wrote scripts/seed.py — creates admin (admin/admin12345) + driver_01 (driver/driver12345) if not present. --reset flag truncates all tables (DEV ONLY, requires confirmation).
+- Wrote tests/conftest.py:
+  * TEST_DATABASE_URL = settings.DATABASE_URL.replace("/waslni", "/waslni_test").
+  * test_engine + TestSessionLocal bound to test DB.
+  * setup_database fixture (session-scoped, autouse) — creates all tables once.
+  * truncate_tables fixture (function-scoped, autouse) — TRUNCATE all tables between tests.
+  * db_session, app_with_db (overrides get_db), client (httpx ASGITransport), test_user, auth_headers fixtures.
+- Wrote pytest.ini — async mode auto, strict markers, testpaths=tests.
+- Wrote 4 test files (28 test methods):
+  * test_config.py (6 tests) — defaults, CORS parsing, is_production/is_development, JWT_SECRET handling.
+  * test_exceptions.py (12 tests) — hierarchy, status codes, code/message/details, format_error_response minimal + with details + None handling, all ErrorCodes uppercase alphanumeric.
+  * test_security.py (10 tests) — Argon2 hashing (starts with $argon2, different salt each time, verify accepts/rejects, returns False on garbage), JWT access token create+decode, refresh token with jti, tampered token rejected, expired token raises TokenExpiredError.
+  * test_health.py (3 tests) — /api/v1/health returns ok, /health returns 200, /openapi.json available in dev.
+- Wrote README.md with Quick Start (Docker + Local), Testing instructions, default credentials, project structure.
+
+Stage Summary:
+- Phase 7 (Backend Foundation) complete.
+- 31 Python files + 6 config/Docker files + README produced.
+- Backend is fully runnable: `docker compose up -d && alembic upgrade head && python -m scripts.seed` produces a working FastAPI server with /health, /docs, /redoc.
+- Test suite (28 tests) covers config, exceptions, security primitives, and the /health endpoint.
+- Architecture:
+  * app/core/ — config, database, security, exceptions, logging (5 modules)
+  * app/models/ — 6 SQLAlchemy ORM models
+  * app/api/v1.py — empty router (Phase 8 adds /auth)
+  * app/main.py — app factory with CORS + exception handlers + /health
+  * migrations/ — async Alembic with single initial migration
+  * tests/ — pytest-asyncio + httpx + isolated test DB
+- Key design decisions:
+  * All timestamps use timezone=True (UTC storage).
+  * UUID PKs generated client-side (default=uuid4 in Python, server_default=gen_random_uuid() in DB).
+  * Composite UNIQUE(driver_id, phone) on customers — different drivers can share a phone number.
+  * FK on deliveries.customer_id uses RESTRICT (never silently lose delivery history).
+  * CHECK constraints enforce state-machine consistency at the DB level (defense in depth).
+  * Argon2id with OWASP-recommended parameters (64MB / time 3 / parallel 4).
+  * Refresh tokens stored as SHA-256 hashes (never plaintext) — enables revocation.
+  * Idempotency keys expire after 24h via server_default.
+  * Exception handlers convert everything (including unhandled exceptions) to the unified error response — never leak internals.
+- Next: Phase 8 (Backend Auth) — /auth router (login, refresh, logout, me), AuthService, get_current_user dependency, audit logging, rate limiting on /auth/login.
