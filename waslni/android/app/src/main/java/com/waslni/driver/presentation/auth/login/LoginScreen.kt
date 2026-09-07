@@ -22,41 +22,41 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.waslni.driver.R
 
 /**
- * Login screen — placeholder for Phase 2.
+ * Login screen — backed by [LoginViewModel].
  *
- * In Phase 11, this will:
- * - Be backed by LoginViewModel (Hilt-injected).
- * - Call LoginUseCase → AuthRepository → /auth/login.
- * - Show real loading / error states.
- * - Persist tokens via SecureStorage.
- *
- * For now it just collects the fields and calls onLoginSuccess on button click
- * so we can verify navigation end-to-end.
+ * On success → calls [onLoginSuccess] which navigates to Home.
+ * On error → displays the localized error message above the button.
  */
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    viewModel: LoginViewModel = hiltViewModel()
 ) {
-    var username by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Navigate on success
+    LaunchedEffect(state.isSuccess) {
+        if (state.isSuccess) {
+            onLoginSuccess()
+            viewModel.resetSuccess()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -65,11 +65,12 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Logo / Title
+        // Title
         Text(
             text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -82,8 +83,8 @@ fun LoginScreen(
 
         // Username
         OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
+            value = state.username,
+            onValueChange = viewModel::onUsernameChange,
             label = { Text(stringResource(R.string.username)) },
             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
             singleLine = true,
@@ -98,20 +99,20 @@ fun LoginScreen(
 
         // Password
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
+            value = state.password,
+            onValueChange = viewModel::onPasswordChange,
             label = { Text(stringResource(R.string.password)) },
             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
             trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                IconButton(onClick = viewModel::togglePasswordVisibility) {
                     Icon(
-                        imageVector = if (passwordVisible) Icons.Default.VisibilityOff
+                        imageVector = if (state.isPasswordVisible) Icons.Default.VisibilityOff
                         else Icons.Default.Visibility,
                         contentDescription = stringResource(R.string.toggle_password_visibility)
                     )
                 }
             },
-            visualTransformation = if (passwordVisible) VisualTransformation.None
+            visualTransformation = if (state.isPasswordVisible) VisualTransformation.None
             else PasswordVisualTransformation(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(
@@ -121,28 +122,38 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(8.dp))
+
+        // Error message
+        state.errorMessage?.let { msg ->
+            Text(
+                text = msg,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
 
         // Login button
         Button(
-            onClick = {
-                // TODO Phase 11: call LoginViewModel.login(username, password)
-                isLoading = true
-                onLoginSuccess()
-            },
-            enabled = username.isNotBlank() && password.isNotBlank() && !isLoading,
+            onClick = viewModel::login,
+            enabled = state.canSubmit,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp)
         ) {
-            if (isLoading) {
+            if (state.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
                     color = MaterialTheme.colorScheme.onPrimary,
                     strokeWidth = 2.dp
                 )
             } else {
-                Text(stringResource(R.string.login_button))
+                Text(stringResource(R.string.login_button), fontWeight = FontWeight.SemiBold)
             }
         }
     }

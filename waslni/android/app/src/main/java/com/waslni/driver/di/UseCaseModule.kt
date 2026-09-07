@@ -1,7 +1,12 @@
 package com.waslni.driver.di
 
 import com.waslni.driver.core.location.LocationProvider
+import com.waslni.driver.domain.repository.AuthRepository
 import com.waslni.driver.domain.repository.DeliveryRepository
+import com.waslni.driver.domain.usecase.auth.HasSessionUseCase
+import com.waslni.driver.domain.usecase.auth.LoginUseCase
+import com.waslni.driver.domain.usecase.auth.LogoutUseCase
+import com.waslni.driver.domain.usecase.auth.VerifySessionUseCase
 import com.waslni.driver.domain.usecase.customer.AddCustomerUseCase
 import com.waslni.driver.domain.usecase.customer.CheckDuplicatePhoneUseCase
 import com.waslni.driver.domain.usecase.customer.DeleteCustomerUseCase
@@ -71,4 +76,13 @@ object UseCaseModule {
     @Provides fun provideObserveActiveDeliveryCustomerIdsUseCase(
         repo: DeliveryRepository
     ) = ObserveActiveDeliveryCustomerIdsUseCase(repo)
+
+    // === Auth ===
+    @Provides fun provideLoginUseCase(repo: AuthRepository) = LoginUseCase(repo)
+
+    @Provides fun provideLogoutUseCase(repo: AuthRepository) = LogoutUseCase(repo)
+
+    @Provides fun provideHasSessionUseCase(repo: AuthRepository) = HasSessionUseCase(repo)
+
+    @Provides fun provideVerifySessionUseCase(repo: AuthRepository) = VerifySessionUseCase(repo)
 }

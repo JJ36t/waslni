@@ -6,31 +6,34 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.waslni.driver.R
-import kotlinx.coroutines.delay
 
 /**
- * Splash screen.
+ * Splash screen — verifies the local session and routes to Login or Home.
  *
- * In Phase 11 this will check the AuthRepository for a valid session
- * and route to either Login or Home. For now it waits 800ms then
- * routes to Login.
- *
- * The system splash (via SplashScreen API) covers the cold-start visual.
- * This composable is just the brief in-app loading state.
+ * The Android 12+ system splash (via SplashScreen API) covers the cold-start
+ * visual. This composable is the brief in-app loading state.
  */
 @Composable
 fun SplashScreen(
     onNavigateToLogin: () -> Unit,
-    onNavigateToHome: () -> Unit
+    onNavigateToHome: () -> Unit,
+    viewModel: SplashViewModel = hiltViewModel()
 ) {
-    // TODO Phase 11: replace with AuthRepository.hasValidSession() check
-    LaunchedEffect(Unit) {
-        delay(800)
-        onNavigateToLogin()
+    val state by viewModel.state.collectAsState()
+
+    LaunchedEffect(state) {
+        when (state) {
+            SplashState.NavigateToLogin -> onNavigateToLogin()
+            SplashState.NavigateToHome -> onNavigateToHome()
+            SplashState.Loading -> Unit
+        }
     }
 
     Box(

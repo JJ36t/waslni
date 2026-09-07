@@ -667,3 +667,87 @@ Stage Summary:
 - Backend MVP is now feature-complete. Next phases (11+) integrate Android with the backend:
   * Phase 11 — Android ↔ Backend Integration (Retrofit, auth interceptor, token authenticator, real login flow)
   * Phase 12 — Offline Sync (SyncWorker via WorkManager, retry logic, conflict handling on Android side)
+
+---
+Task ID: phase-11
+Agent: main
+Task: Phase 11 — Android ↔ Backend Integration: Wire the Android app to the real FastAPI backend with Retrofit + OkHttp + secure token storage + auto-refresh + unified error mapping + real login/splash flow.
+
+Work Log:
+- Created 6 DTO files (data/remote/dto/):
+  * CommonDto.kt — ErrorDto, ErrorBody, PaginatedResponse<T>, PaginationMeta
+  * AuthDto.kt — LoginRequestDto, RefreshRequestDto, LogoutRequestDto, TokenResponseDto, UserDto
+  * CustomerDto.kt — CustomerCreateDto, CustomerUpdateDto, CustomerResponseDto
+  * DeliveryDto.kt — DeliveryCreateDto, DeliveryStatusUpdateDto, DeliveryResponseDto
+  * SyncDto.kt — SyncRequestDto, SyncOperationDto, SyncResponseDto, SyncOperationResultDto, ServerChangeDto
+- Created 4 API interfaces (data/remote/api/):
+  * AuthApi — login, refresh, logout, getMe
+  * CustomerApi — listCustomers (paginated + search), createCustomer, getCustomer, updateCustomer, deleteCustomer
+  * DeliveryApi — listDeliveries (paginated + filters), createDelivery, getDelivery, updateStatus (with Idempotency-Key header)
+  * SyncApi — sync (with optional Idempotency-Key)
+- Created core/network/ApiException.kt — sealed class hierarchy with 12 subtypes:
+  * NoConnection, Timeout (network-level)
+  * Unauthorized, Forbidden, NotFound, Conflict, Validation, RateLimited (HTTP)
+  * ServerError, HttpError (5xx + other)
+  * ParseError, Unknown
+  Each carries an Arabic user-facing message.
+- Created core/security/SecureStorage.kt — EncryptedSharedPreferences wrapper (AES-256-GCM, Keystore-backed master key). Properties: accessToken, refreshToken, userId, username, role. clearAuth() wipes all auth fields.
+- Created core/security/TokenManager.kt — high-level token manager with refreshMutex() for serializing concurrent refresh attempts. Methods: hasSession(), saveTokens(), updateAccessToken(), clearSession(), getCachedUser().
+- Created 3 interceptors (data/remote/interceptor/):
+  * AuthInterceptor — adds "Authorization: Bearer <token>" header to every request except /auth/login and /auth/refresh.
+  * TokenAuthenticator — OkHttp Authenticator that runs on 401. Uses refreshMutex to serialize concurrent refresh attempts. Double-check pattern: if another 401 already refreshed, just use the new token. On refresh failure → clearSession() + return null (propagates 401). Recursion guard via responseCount >= 2.
+  * ErrorInterceptor — maps IOException → NoConnection/Timeout, HTTP 401 → Unauthorized, 403 → Forbidden, 404 → NotFound, 409 → Conflict, 422 → Validation, 429 → RateLimited, 5xx → ServerError. Parses the unified error body for code + message.
+- Created data/remote/mapper/DtoMappers.kt — bidirectional mappers: UserDto→User, CustomerResponseDto→Customer, DeliveryResponseDto→Delivery. Plus parseIso8601ToMillis() and formatMillisToIso8601() helpers (uses java.time.Instant via core library desugaring).
+- Created di/NetworkModule.kt — Hilt module providing:
+  * SecureStorage (singleton, @ApplicationContext)
+  * TokenManager (singleton)
+  * NetworkJson (kotlinx.serialization Json with encodeDefaults=false for small payloads)
+  * OkHttpClient (15s connect, 30s read/write, retryOnConnectionFailure, authenticator=TokenAuthenticator, application interceptors: AuthInterceptor + ErrorInterceptor, HttpLoggingInterceptor.HEADERS in debug only — no body logging to avoid token leaks)
+  * Retrofit (baseUrl from BuildConfig.API_BASE_URL, kotlinx.serialization converter)
+  * 4 API interfaces (AuthApi, CustomerApi, DeliveryApi, SyncApi)
+- Created domain/model/User.kt — domain User (id, username, role, isActive, lastLoginAt).
+- Created domain/repository/AuthRepository.kt — interface: login, logout, hasSession, verifySession, getCachedUser.
+- Created data/repository/AuthRepositoryImpl.kt:
+  * login → POST /auth/login → saveTokens → return User
+  * logout → POST /auth/logout (best-effort) → clearSession
+  * hasSession → TokenManager.hasSession()
+  * verifySession → GET /auth/me → return User or null (on Unauthorized → null, on network error → cached user)
+  * getCachedUser → reads from TokenManager
+- Created 4 auth use cases: LoginUseCase, LogoutUseCase, HasSessionUseCase, VerifySessionUseCase.
+- Updated di/RepositoryModule.kt — bind AuthRepository to AuthRepositoryImpl.
+- Updated di/UseCaseModule.kt — provide 4 auth use cases.
+- Rewrote presentation/auth/splash/SplashViewModel.kt — checks HasSessionUseCase → if false, navigate to Login. If true, calls VerifySessionUseCase (best-effort) → navigates to Home or Login.
+- Rewrote presentation/auth/splash/SplashScreen.kt — observes SplashViewModel.state, navigates on NavigateToLogin/NavigateToHome.
+- Rewrote presentation/auth/login/LoginViewModel.kt — LoginUiState (username, password, isLoading, isPasswordVisible, errorMessage, isSuccess). login() calls LoginUseCase, maps ApiException subtypes to Arabic messages. canSubmit computed property.
+- Rewrote presentation/auth/login/LoginScreen.kt — bound to LoginViewModel. Username + password fields, visibility toggle, error message display, loading indicator, LaunchedEffect on isSuccess → onLoginSuccess callback.
+- Wrote 4 test files (40 test methods):
+  * DtoMappersTest.kt (10 tests) — UserDto→User (with null/malformed lastLoginAt), CustomerResponseDto→Customer (with null accuracy), DeliveryResponseDto→Delivery (DELIVERED + CANCELLED), parseIso8601ToMillis (malformed + valid), formatMillisToIso8601 round-trip.
+  * ApiExceptionTest.kt (11 tests) — all 12 subclasses extend ApiException, Arabic messages for NoConnection/Timeout, code-carrying for Unauthorized/Forbidden/NotFound/Conflict, status for ServerError/HttpError, cause for ParseError, default message for Unknown.
+  * TokenManagerTest.kt (9 tests) — initial state, hasSession true/false for blank, saveTokens persists all fields, updateAccessToken only writes access_token, clearSession removes all keys, getters read from storage, refreshMutex returns same instance.
+  * LoginViewModelTest.kt (10 tests) — initial state, onUsernameChange/onPasswordChange, canSubmit, login success sets isSuccess, login unauthorized → Arabic message, login no-connection → Arabic message, login forbidden → Arabic message, resetSuccess, togglePasswordVisibility, login with blank username doesn't call repository.
+
+Stage Summary:
+- Phase 11 (Android ↔ Backend Integration) complete.
+- 26 new Kotlin main files + 4 new test files added on top of Phase 10.
+- Total Android: 101 Kotlin main files + 18 test files = 119 Kotlin files.
+- Network layer architecture:
+  * data/remote/dto/ — 6 DTO files matching the backend wire format exactly
+  * data/remote/api/ — 4 Retrofit interfaces (14 endpoints total)
+  * data/remote/interceptor/ — 3 interceptors (Auth, TokenAuthenticator, Error)
+  * data/remote/mapper/ — DTO ↔ domain mappers with ISO 8601 timestamp parsing
+  * core/network/ — ApiException sealed hierarchy with Arabic messages
+  * core/security/ — SecureStorage (EncryptedSharedPreferences) + TokenManager
+  * di/NetworkModule — Hilt wiring for the whole stack
+- Auth flow complete:
+  * SplashScreen → SplashViewModel checks HasSessionUseCase → if true, VerifySessionUseCase → navigate to Home or Login
+  * LoginScreen → LoginViewModel → LoginUseCase → AuthRepository → AuthApi → POST /auth/login → saveTokens → navigate to Home
+  * Auto-refresh: TokenAuthenticator handles 401 transparently with mutex for concurrency
+  * Logout: AuthRepository.logout() → POST /auth/logout (best-effort) → clearSession
+- Key security decisions:
+  * Tokens stored in EncryptedSharedPreferences (AES-256-GCM, Keystore-backed)
+  * HttpLoggingInterceptor.HEADERS in debug only — no body logging to avoid token leaks
+  * TokenAuthenticator uses mutex to prevent concurrent refresh storms
+  * Recursion guard (responseCount >= 2) prevents infinite refresh loops
+  * ErrorInterceptor never exposes backend internals — Arabic user-facing messages
+  * AuthRepository.logout() is best-effort: if the network call fails, local session is still cleared
+- Next: Phase 12 (Offline Sync) — SyncWorker via WorkManager that reads pending sync_operations from Room, calls /sync, processes results (mark SYNCED / FAILED, handle CONFLICT by adopting server_state), retry with exponential backoff, network constraint (only run when CONNECTED).
