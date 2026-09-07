@@ -590,3 +590,80 @@ Stage Summary:
 - Audit logging for: CREATE_CUSTOMER, UPDATE_CUSTOMER, DELETE_CUSTOMER, START_DELIVERY, ARRIVE_DELIVERY, COMPLETE_DELIVERY, CANCEL_DELIVERY.
 - 39 new test methods (21 customers + 18 deliveries) covering happy path, error cases, authorization, state machine, idempotency.
 - Next: Phase 10 (Backend Sync) — /sync endpoint that accepts a batch of pending operations from Android, processes each one, returns per-op results + server_changes for download direction.
+
+---
+Task ID: phase-10
+Agent: main
+Task: Phase 10 — Backend Sync Endpoint: Build POST /sync that accepts a batch of pending operations from Android, processes each one independently, returns per-op results (SUCCESS/CONFLICT/FAILED/IGNORED), server_changes for download direction, and a new latest_sync_timestamp.
+
+Work Log:
+- Wrote app/schemas/sync.py:
+  * SyncOperationType enum (CREATE_CUSTOMER, UPDATE_CUSTOMER, DELETE_CUSTOMER, CREATE_DELIVERY, UPDATE_DELIVERY, COMPLETE_DELIVERY, CANCEL_DELIVERY).
+  * SyncEntityType enum (CUSTOMER, DELIVERY).
+  * SyncOperationRequest (id, entity_type, operation, payload dict, optional idempotency_key).
+  * SyncRequest (operations list max 500, optional latest_sync_timestamp).
+  * SyncResultStatus enum (SUCCESS, CONFLICT, FAILED, IGNORED).
+  * SyncOperationResult (operation_id, status, entity_id, server_state for SUCCESS/CONFLICT, error dict).
+  * ServerChange (entity_type, entity_id, operation, payload — for download direction).
+  * SyncResponse (results, server_changes, latest_sync_timestamp).
+- Wrote app/services/sync_service.py:
+  * SyncService class with process(driver_id, request, ip) → SyncResponse.
+  * _process_one() — wraps each operation in try/except, maps exceptions to result statuses (ConflictError → CONFLICT with server_state, NotFoundError → IGNORED for DELETE/UPDATE or FAILED for CREATE, AppError → FAILED, generic Exception → FAILED with INTERNAL_ERROR).
+  * _dispatch() — routes to _process_customer_op() or _process_delivery_op() based on entity_type.
+  * _process_customer_op():
+    - CREATE_CUSTOMER → CustomerService.create()
+    - UPDATE_CUSTOMER → conflict check (latest-write-wins): if server.updated_at > payload.updated_at → CONFLICT with server_state. Otherwise CustomerService.update().
+    - DELETE_CUSTOMER → CustomerService.delete()
+  * _process_delivery_op():
+    - CREATE_DELIVERY → DeliveryService.create()
+    - COMPLETE_DELIVERY → DeliveryService.transition(target=DELIVERED, idempotency_key=op.idempotency_key)
+    - CANCEL_DELIVERY → DeliveryService.transition(target=CANCELLED, idempotency_key=op.idempotency_key)
+    - UPDATE_DELIVERY → DeliveryService.transition(target=payload.status, idempotency_key=op.idempotency_key)
+  * _compute_server_changes(driver_id, since):
+    - If since is None (first sync) → return [] (client already has its own data).
+    - Query customers WHERE driver_id AND updated_at > since → emit CREATE_CUSTOMER or UPDATE_CUSTOMER based on whether created_at ≈ updated_at.
+    - Query deliveries for the driver → compute modified_at as max of all timestamps → if > since, emit appropriate operation based on status.
+  * _lookup_server_state() — for CONFLICT results, fetches the current server version so the client can adopt it.
+  * _TIMESTAMP_GRACE = 5 seconds — the new latest_sync_timestamp is "now - 5s" so concurrent writes aren't missed on next sync.
+  * Audit log SYNC_PERFORMED with operations_count/success_count/conflict_count/failed_count metadata.
+- Updated app/api/deps.py — added SyncServiceDep provider with customer_service_factory + delivery_service_factory closures that bind per-operation service instances to the same session (atomic batch commit).
+- Wrote app/api/sync.py — POST /sync endpoint. Accepts SyncRequest, requires ActiveUser, returns SyncResponse. The batch is processed atomically — all operations commit or none do, but per-op failures are still reported individually.
+- Updated app/api/v1.py — include sync_router.
+- Wrote tests/test_sync.py (17 test methods in 7 test classes):
+  * TestSyncCreateCustomer (2 tests) — create via sync success, duplicate phone returns CONFLICT.
+  * TestSyncUpdateCustomer (2 tests) — update via sync success, stale update (server has newer) returns CONFLICT with server_state.
+  * TestSyncDeleteCustomer (2 tests) — delete via sync success (verified gone), delete already-deleted returns IGNORED.
+  * TestSyncCreateDelivery (1 test) — create delivery via sync with nested customer response.
+  * TestSyncCompleteDelivery (2 tests) — complete with idempotency_key, idempotent retry returns cached response (same completed_at).
+  * TestBatchProcessing (3 tests) — multiple ops in one batch, failure in one op doesn't block others, empty batch returns empty results + timestamp.
+  * TestServerChanges (3 tests) — first sync returns no changes, changes since last sync are returned, latest_sync_timestamp advances.
+  * TestSyncAuthorization (1 test) — driver B cannot UPDATE driver A's customer via sync.
+
+Stage Summary:
+- Phase 10 (Backend Sync) complete.
+- 4 new Python files added on top of Phase 9's 51.
+- Total backend: 55 Python files.
+- Complete API surface for MVP:
+  * /auth (4 endpoints) — Phase 8
+  * /customers (5 endpoints) — Phase 9
+  * /deliveries (4 endpoints) — Phase 9
+  * /sync (1 endpoint) — Phase 10
+  * /health (root + v1) — Phase 7
+- Sync architecture:
+  * Batch processing — one HTTP call carries up to 500 operations.
+  * Independent processing — per-op failures don't abort the batch.
+  * Atomic commit — all operations share the same session/transaction.
+  * Conflict resolution:
+    - Customers: latest-write-wins based on updated_at. Server returns CONFLICT + server_state so client adopts the server version.
+    - Delivery completion: idempotency_key prevents double-execution on retry.
+  * Download direction: server_changes returns entities modified since the client's last sync — enables multi-device sync.
+  * Timestamp grace period: 5-second buffer so concurrent writes aren't missed.
+- Result status mapping:
+  * SUCCESS — operation applied, server_state returned.
+  * CONFLICT — server has newer version (customers) or duplicate detected; server_state returned for adoption.
+  * IGNORED — operation no longer applicable (e.g. DELETE for already-deleted entity).
+  * FAILED — validation error, unknown entity, or internal error.
+- 17 new test methods covering: CREATE/UPDATE/DELETE for customers, CREATE/COMPLETE for deliveries, batch processing, conflict scenarios, idempotency, multi-device sync, authorization.
+- Backend MVP is now feature-complete. Next phases (11+) integrate Android with the backend:
+  * Phase 11 — Android ↔ Backend Integration (Retrofit, auth interceptor, token authenticator, real login flow)
+  * Phase 12 — Offline Sync (SyncWorker via WorkManager, retry logic, conflict handling on Android side)

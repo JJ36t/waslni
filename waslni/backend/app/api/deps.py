@@ -35,6 +35,7 @@ from app.repositories.user_repo import UserRepository
 from app.services.auth_service import AuthService
 from app.services.customer_service import CustomerService
 from app.services.delivery_service import DeliveryService
+from app.services.sync_service import SyncService
 
 
 # === Session dependency (re-exported for convenience) ===
@@ -81,6 +82,49 @@ async def get_delivery_service(session: DbSession) -> DeliveryService:
 
 
 DeliveryServiceDep = Annotated[DeliveryService, Depends(get_delivery_service)]
+
+
+# === Sync service dependency ===
+async def get_sync_service(session: DbSession) -> SyncService:
+    """Construct a SyncService bound to the request's session.
+
+    The service uses factory functions to lazily create per-operation
+    CustomerService / DeliveryService instances, all sharing the same
+    session so the whole batch commits atomically.
+    """
+    audit_repo = AuditLogRepository(session)
+    customers_repo = CustomerRepository(session)
+    deliveries_repo = DeliveryRepository(session)
+    idempotency_repo = IdempotencyKeyRepository(session)
+
+    def customer_factory(driver_id) -> CustomerService:
+        return CustomerService(
+            session=session,
+            customers=customers_repo,
+            audit=audit_repo,
+        )
+
+    def delivery_factory(driver_id) -> DeliveryService:
+        return DeliveryService(
+            session=session,
+            deliveries=deliveries_repo,
+            customers=customers_repo,
+            idempotency=idempotency_repo,
+            audit=audit_repo,
+        )
+
+    return SyncService(
+        session=session,
+        customers_repo=customers_repo,
+        deliveries_repo=deliveries_repo,
+        idempotency_repo=idempotency_repo,
+        audit_repo=audit_repo,
+        customer_service_factory=customer_factory,
+        delivery_service_factory=delivery_factory,
+    )
+
+
+SyncServiceDep = Annotated[SyncService, Depends(get_sync_service)]
 
 
 # === Current user dependency ===
