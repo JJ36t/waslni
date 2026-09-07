@@ -485,3 +485,108 @@ Stage Summary:
   * Refresh tokens rejected by /auth/me (and access tokens rejected by /auth/refresh) — strict type checking.
   * ActiveUser dependency (separate from CurrentUser) for endpoints that perform actions.
 - Next: Phase 9 (Backend Customers & Deliveries) — CRUD endpoints with authorization (driver A cannot access driver B's data), pagination, search, delivery state machine validation.
+
+---
+Task ID: phase-9
+Agent: main
+Task: Phase 9 — Backend Customers & Deliveries: Build CRUD endpoints with authorization, pagination, search, delivery state machine, Idempotency-Key support, and comprehensive tests.
+
+Work Log:
+- Wrote app/schemas/customer.py:
+  * CustomerCreate (name 2-120, phone 7-30, lat -90..90, lng -180..180, accuracy ≥0 nullable). Validators: name.strip(), phone normalized (strip spaces/dashes/parens).
+  * CustomerUpdate (all fields optional, same validators).
+  * CustomerResponse (from_attributes, never includes password_hash).
+- Wrote app/schemas/delivery.py:
+  * DeliveryStatusEnum (PENDING, ASSIGNED, ON_THE_WAY, ARRIVED, DELIVERED, CANCELLED).
+  * DeliveryCreate (customer_id UUID, status default ON_THE_WAY).
+  * DeliveryStatusUpdate (status enum).
+  * DeliveryResponse (id, customer_id, nested customer, status, all timestamps).
+- Wrote app/repositories/customer_repo.py:
+  * All queries scoped by driver_id for authorization.
+  * get_by_id, get_by_phone (with exclude_id for update flow), list_customers (paginated + search via ILIKE prefix on name OR phone), create, update_fields (bumps updated_at server-side), delete (returns bool), has_active_delivery (checks ON_THE_WAY/ARRIVED).
+- Wrote app/repositories/delivery_repo.py:
+  * get_by_id with selectinload(Delivery.customer).
+  * list_deliveries with filters: status, from_date, to_date.
+  * get_active_for_customer (used to block duplicate active deliveries).
+  * create (with refresh to populate customer relationship).
+  * update_status (sets status + optional timestamp fields, returns updated row with customer loaded).
+- Updated app/models/delivery.py — added customer: Mapped["Customer"] relationship(lazy="selectin") so responses can eager-load customer data.
+- Wrote app/repositories/idempotency_repo.py:
+  * _hash_request(payload) — stable SHA-256 of JSON body for conflict detection.
+  * lookup(key, user_id) — fetch existing record.
+  * store(key, user_id, endpoint, request_payload, response, status_code, ttl=24h) — persist.
+  * compute_request_hash(payload) — exposed for service-layer comparison.
+  * delete_expired() — periodic cleanup.
+- Wrote app/services/customer_service.py:
+  * create(driver_id, data, ip) — duplicate phone check, audit log CREATE_CUSTOMER.
+  * get(customer_id, driver_id) — scoped fetch.
+  * list(driver_id, page, limit, search) — paginated.
+  * update(customer_id, driver_id, data, ip) — only non-None fields applied, duplicate phone check on phone change, audit log UPDATE_CUSTOMER.
+  * delete(customer_id, driver_id, ip) — blocked by active delivery (raises CUSTOMER_HAS_ACTIVE_DELIVERY), audit log DELETE_CUSTOMER.
+  * _require_customer() — same NotFoundError for "doesn't exist" and "belongs to another driver" (no info leak).
+- Wrote app/services/delivery_service.py:
+  * _TRANSITIONS dict — state machine: PENDING → ASSIGNED/CANCELLED, ASSIGNED → ON_THE_WAY/CANCELLED, ON_THE_WAY → ARRIVED/CANCELLED, ARRIVED → DELIVERED/CANCELLED, DELIVERED/CANCELLED → terminal.
+  * _is_allowed_transition() — O(1) lookup.
+  * create(driver_id, data, ip) — customer must exist + belong to driver, no existing active delivery, sets started_at if ON_THE_WAY, audit log START_DELIVERY.
+  * get(delivery_id, driver_id) — scoped fetch.
+  * list(driver_id, page, limit, status, from_date, to_date) — paginated + filtered.
+  * transition(delivery_id, driver_id, target, idempotency_key, request_payload, ip):
+    * Idempotency check first — if key exists with same hash → return cached response; if key exists with different hash → 409 IDEMPOTENCY_CONFLICT.
+    * Validate transition via _is_allowed_transition() — 409 INVALID_STATE_TRANSITION if not allowed.
+    * Apply timestamp based on target (arrived_at / completed_at / cancelled_at / started_at).
+    * Audit log START_DELIVERY / ARRIVE_DELIVERY / COMPLETE_DELIVERY / CANCEL_DELIVERY.
+    * Cache response under idempotency key if provided.
+- Updated app/api/deps.py — added CustomerServiceDep + DeliveryServiceDep providers (construct services with all required repositories bound to the request session).
+- Wrote app/api/customers.py — 5 endpoints:
+  * GET /customers (paginated, search via ?search=)
+  * POST /customers (201 on success, 409 on duplicate phone)
+  * GET /customers/{id} (404 if not found OR belongs to another driver)
+  * PATCH /customers/{id} (partial update, 409 on duplicate phone)
+  * DELETE /customers/{id} (204 on success, 409 if active delivery exists)
+  * All endpoints require ActiveUser.
+- Wrote app/api/deliveries.py — 4 endpoints:
+  * GET /deliveries (paginated, filters: status, from_date, to_date)
+  * POST /deliveries (201 on success, 404 if customer unknown, 409 if active delivery exists)
+  * GET /deliveries/{id} (404 if not found)
+  * PATCH /deliveries/{id}/status (accepts Idempotency-Key header, 409 on invalid transition or idempotency conflict)
+  * All endpoints require ActiveUser.
+- Updated app/api/v1.py — include customers_router + deliveries_router.
+- Wrote tests/test_customers.py (21 test methods in 5 classes):
+  * TestCreateCustomer (6 tests) — success, phone normalization, duplicate phone, validation (short name, bad latitude), requires auth.
+  * TestGetCustomer (3 tests) — success, unknown → 404, other driver's customer → 404 (no info leak).
+  * TestListCustomers (5 tests) — empty, with customers (sorted), pagination, search by name, search by phone.
+  * TestUpdateCustomer (4 tests) — update name, duplicate phone conflict, partial update only changes provided fields, unknown → 404.
+  * TestDeleteCustomer (4 tests) — success, unknown → 404, blocked by active delivery, other driver's customer → 404.
+- Wrote tests/test_deliveries.py (18 test methods in 6 classes):
+  * TestCreateDelivery (4 tests) — success (with nested customer), unknown customer → 404, duplicate active delivery → 409, new delivery after previous delivered succeeds.
+  * TestGetDelivery (2 tests) — success, unknown → 404.
+  * TestListDeliveries (2 tests) — empty, filter by status.
+  * TestStateMachine (5 tests) — valid ON_THE_WAY→ARRIVED, valid ARRIVED→DELIVERED, invalid skip ON_THE_WAY→DELIVERED → 409, transition from terminal (CANCELLED) → 409, cancel from ON_THE_WAY.
+  * TestIdempotency (3 tests) — same key + same body returns cached response (same arrived_at), same key + different body → 409 IDEMPOTENCY_CONFLICT, no key allows re-execution (second call hits state machine).
+  * TestAuthorization (2 tests) — other driver cannot GET delivery → 404, other driver cannot PATCH delivery → 404.
+
+Stage Summary:
+- Phase 9 (Backend Customers & Deliveries) complete.
+- 12 new Python files added on top of Phase 8's 40.
+- Total backend: 51 Python files.
+- API surface complete for MVP:
+  * /auth (4 endpoints) — Phase 8
+  * /customers (5 endpoints) — Phase 9
+  * /deliveries (4 endpoints) — Phase 9
+  * /sync (1 endpoint) — Phase 10 (next)
+- Authorization fully enforced:
+  * All customer/delivery queries scoped by driver_id (extracted from JWT).
+  * Same 404 error for "doesn't exist" and "belongs to another driver" — no info leak.
+  * ActiveUser dependency (requires is_active=True) on all mutating endpoints.
+- State machine enforced:
+  * Backend _TRANSITIONS dict validates every transition.
+  * DB CHECK constraint validates timestamp/status consistency (defense in depth).
+  * Terminal states (DELIVERED, CANCELLED) reject all further transitions.
+- Idempotency fully implemented:
+  * PATCH /deliveries/{id}/status accepts Idempotency-Key header.
+  * Same key + same body → cached response (no re-execution).
+  * Same key + different body → 409 IDEMPOTENCY_CONFLICT.
+  * No key → state machine applies (second call may 409 if already in target state).
+- Audit logging for: CREATE_CUSTOMER, UPDATE_CUSTOMER, DELETE_CUSTOMER, START_DELIVERY, ARRIVE_DELIVERY, COMPLETE_DELIVERY, CANCEL_DELIVERY.
+- 39 new test methods (21 customers + 18 deliveries) covering happy path, error cases, authorization, state machine, idempotency.
+- Next: Phase 10 (Backend Sync) — /sync endpoint that accepts a batch of pending operations from Android, processes each one, returns per-op results + server_changes for download direction.

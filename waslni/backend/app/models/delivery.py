@@ -11,7 +11,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -72,6 +72,9 @@ class Delivery(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+    # === Relationships ===
+    customer: Mapped["Customer"] = relationship(lazy="selectin")
 
     __table_args__ = (
         CheckConstraint(

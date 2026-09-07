@@ -27,9 +27,14 @@ from app.core.security import (
 )
 from app.models import User
 from app.repositories.audit_log_repo import AuditLogRepository
+from app.repositories.customer_repo import CustomerRepository
+from app.repositories.delivery_repo import DeliveryRepository
+from app.repositories.idempotency_repo import IdempotencyKeyRepository
 from app.repositories.refresh_token_repo import RefreshTokenRepository
 from app.repositories.user_repo import UserRepository
 from app.services.auth_service import AuthService
+from app.services.customer_service import CustomerService
+from app.services.delivery_service import DeliveryService
 
 
 # === Session dependency (re-exported for convenience) ===
@@ -48,6 +53,34 @@ async def get_auth_service(session: DbSession) -> AuthService:
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+# === Customer service dependency ===
+async def get_customer_service(session: DbSession) -> CustomerService:
+    """Construct a CustomerService bound to the request's session."""
+    return CustomerService(
+        session=session,
+        customers=CustomerRepository(session),
+        audit=AuditLogRepository(session),
+    )
+
+
+CustomerServiceDep = Annotated[CustomerService, Depends(get_customer_service)]
+
+
+# === Delivery service dependency ===
+async def get_delivery_service(session: DbSession) -> DeliveryService:
+    """Construct a DeliveryService bound to the request's session."""
+    return DeliveryService(
+        session=session,
+        deliveries=DeliveryRepository(session),
+        customers=CustomerRepository(session),
+        idempotency=IdempotencyKeyRepository(session),
+        audit=AuditLogRepository(session),
+    )
+
+
+DeliveryServiceDep = Annotated[DeliveryService, Depends(get_delivery_service)]
 
 
 # === Current user dependency ===
