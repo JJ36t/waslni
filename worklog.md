@@ -1091,3 +1091,71 @@ Stage Summary:
   * "بدء الملاحة" button on Active Delivery is enabled only when route is calculated (route != null && !isCalculatingRoute).
 - Navigation graph now has 12 routes: splash, login, home, customers, history, settings, add_customer, customer_details, edit_customer, capture_location, active_delivery, navigation.
 - Next: Phase 16 (Arrival Detection) — ArrivalDetector that uses GPS distance to customer to trigger arrival, GPS drift handling (average of last 3 readings), arrival radius configurable.
+
+---
+Task ID: phase-16
+Agent: main
+Task: Phase 16 — Arrival Detection: Build ArrivalDetector that uses GPS distance to customer to trigger arrival, GPS drift handling (average of last 3 readings), configurable arrival radius, auto-suggest "Mark Arrived" when detected.
+
+Work Log:
+- Created core/location/ArrivalDetector.kt:
+  * @Singleton, constructor-injected with LocationProvider.
+  * observeArrival(customerLocation, arrivalRadiusMeters=50.0) → Flow<ArrivalState>.
+  * GPS drift smoothing: maintains a sliding window of last SMOOTHING_WINDOW=3 distance readings. The smoothed distance is the average of these readings. This prevents false arrivals from a single noisy GPS spike.
+  * MIN_READINGS_BEFORE_ARRIVAL=2: requires at least 2 readings before declaring arrival. Prevents false positive on the very first reading.
+  * NAVIGATION_UPDATE_INTERVAL_MS=5000: 5-second location updates during arrival detection (higher frequency than the 15s home screen interval, lower than the 3s active navigation interval — balances battery + responsiveness).
+  * DEFAULT_ARRIVAL_RADIUS_METERS=50.0: conservative for urban Iraq (a typical city block is ~100m, so 50m means the driver is essentially at the customer's building).
+  * ArrivalState data class: isArrived, distanceMeters (smoothed), rawDistanceMeters (unsmoothed), accuracy, readingsInBuffer. Computed: formattedDistance ("850 m" / "2.3 km"), isWarmingUp (readingsInBuffer < MIN_READINGS).
+- Created domain/usecase/arrival/ObserveArrivalUseCase.kt — thin wrapper around ArrivalDetector.observeArrival().
+- Updated di/UseCaseModule.kt — provides ObserveArrivalUseCase.
+- Updated presentation/delivery/active/ActiveDeliveryViewModel.kt:
+  * Injected ObserveArrivalUseCase.
+  * Added arrivalState + showArrivalSuggestion fields to UiState.
+  * startArrivalDetection(): launches a coroutine that collects from observeArrival(customer.toLatLng()). Updates aux state with arrivalState + showArrivalSuggestion on every emission.
+  * Called automatically from load() when delivery status is ON_THE_WAY.
+  * stopArrivalDetection(): cancels the arrival job. Called from markArrived() (transition to ARRIVED) and onCleared().
+  * dismissArrivalSuggestion(): clears the suggestion flag (e.g. user tapped "Mark Arrived" manually).
+  * markArrived() now clears showArrivalSuggestion + calls stopArrivalDetection() on success.
+  * onCleared() calls stopArrivalDetection() to prevent leaks.
+  * AuxState extended with arrivalState + showArrivalSuggestion.
+  * State combine now passes arrivalState + showArrivalSuggestion to UiState.
+- Created presentation/delivery/active/ArrivalSuggestionBanner.kt — animated banner showing:
+  * Warming up: "جاري تحديد موقعك…" (surfaceVariant background)
+  * Approaching: "المسافة للزبون: 850 m" (surfaceVariant background)
+  * Arrived: "يبدو أنك وصلت. اضغط \"وصلت إلى الزبون\" للتأكيد." (green background, semibold)
+  * AnimatedVisibility with expand/shrink for smooth appearance.
+- Updated presentation/delivery/active/ActiveDeliveryScreen.kt:
+  * ArrivalSuggestionBanner shown below RouteInfoCard when ON_THE_WAY + arrivalState != null.
+  * Banner color: green when showArrivalSuggestion=true, neutral otherwise.
+- Added 4 new string resources (arrival_detected, arrival_distance, arrival_warming_up, arrival_suggestion) in values/ + values-ar/.
+- Wrote 1 test file (9 test methods):
+  * ArrivalDetectorTest.kt — 9 tests using FakeLocationProviderForArrival:
+    - isArrived false during warmup (only 1 reading)
+    - isArrived true when consistently within radius (3 readings at ~22m)
+    - isArrived false when consistently outside radius (3 readings at ~200m)
+    - GPS drift handling: single bad reading (20m spike in 200m readings) does NOT trigger arrival because average (200+200+20)/3 = 140m > 50m threshold
+    - isArrived becomes false when driver moves away (3 close → 3 far)
+    - Custom arrival radius works (150m radius arrives at 111m, 50m radius does not)
+    - formattedDistance shows m for < 1000m
+    - formattedDistance shows km for >= 1000m
+    - isWarmingUp true when readingsInBuffer < MIN_READINGS
+
+Stage Summary:
+- Phase 16 (Arrival Detection) complete.
+- 4 new Kotlin main files + 1 new test file added on top of Phase 15.
+- Total Android: 135 Kotlin main files + 26 test files = 161 Kotlin files.
+- Arrival detection architecture:
+  * core/location/ArrivalDetector — GPS drift smoothing + threshold logic
+  * domain/usecase/arrival/ObserveArrivalUseCase — thin wrapper
+  * presentation/delivery/active/ActiveDeliveryViewModel — auto-starts on ON_THE_WAY, auto-stops on ARRIVED
+  * presentation/delivery/active/ArrivalSuggestionBanner — animated UI banner
+- Key design decisions:
+  * GPS drift smoothing via 3-reading sliding window: prevents false arrivals from a single noisy GPS reading (e.g. a 60m accuracy spike that momentarily places the driver inside the radius).
+  * MIN_READINGS_BEFORE_ARRIVAL=2: the very first reading is never trusted for arrival — we need at least 2 consistent readings.
+  * DEFAULT_ARRIVAL_RADIUS=50m: conservative for urban Iraq. A driver 50m from the saved coordinate is essentially at the customer's building (GPS noise accounts for the remaining distance).
+  * Auto-start: arrival detection begins automatically when the Active Delivery screen loads a delivery in ON_THE_WAY state. No user action needed.
+  * Auto-stop: detection stops when the delivery transitions to ARRIVED (manual or auto). Saves battery.
+  * Non-blocking: arrival detection runs in a background Job that can be cancelled without affecting the rest of the ViewModel.
+  * Suggestion, not auto-transition: we suggest "Mark Arrived" but don't auto-transition. The driver must confirm — they might be at the wrong entrance, or the customer might come out to meet them.
+  * Works without navigation: arrival detection is independent of the NavigationEngine. It works even if the driver didn't use turn-by-turn navigation (e.g. they walked to the customer or used a different map app).
+- Next: Phase 17 (History) — delivery history screen with Today/Week/Month tabs, stats card, LazyColumn of deliveries grouped by day.

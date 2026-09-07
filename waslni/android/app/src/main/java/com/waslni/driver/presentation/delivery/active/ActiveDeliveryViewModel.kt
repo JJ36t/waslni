@@ -2,6 +2,7 @@ package com.waslni.driver.presentation.delivery.active
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.waslni.driver.core.location.ArrivalState
 import com.waslni.driver.core.location.LocationProvider
 import com.waslni.driver.domain.model.Customer
 import com.waslni.driver.domain.model.Delivery
@@ -10,12 +11,14 @@ import com.waslni.driver.domain.model.LocationResult
 import com.waslni.driver.domain.model.RouteResult
 import com.waslni.driver.domain.repository.CustomerRepository
 import com.waslni.driver.domain.repository.DeliveryRepository
+import com.waslni.driver.domain.usecase.arrival.ObserveArrivalUseCase
 import com.waslni.driver.domain.usecase.delivery.CancelDeliveryUseCase
 import com.waslni.driver.domain.usecase.delivery.CompleteDeliveryUseCase
 import com.waslni.driver.domain.usecase.delivery.TransitionDeliveryUseCase
 import com.waslni.driver.domain.usecase.routing.CalculateRouteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -54,7 +57,9 @@ data class ActiveDeliveryUiState(
     val isFinished: Boolean = false,  // true when DELIVERED or CANCELLED → pop back
     val route: RouteResult? = null,
     val isCalculatingRoute: Boolean = false,
-    val routeError: String? = null
+    val routeError: String? = null,
+    val arrivalState: ArrivalState? = null,
+    val showArrivalSuggestion: Boolean = false
 ) {
     val status: DeliveryStatus?
         get() = delivery?.status
@@ -78,7 +83,8 @@ class ActiveDeliveryViewModel @Inject constructor(
     private val completeDelivery: CompleteDeliveryUseCase,
     private val cancelDelivery: CancelDeliveryUseCase,
     private val calculateRoute: CalculateRouteUseCase,
-    private val locationProvider: LocationProvider
+    private val locationProvider: LocationProvider,
+    private val observeArrival: ObserveArrivalUseCase
 ) : ViewModel() {
 
     private val _deliveryId = MutableStateFlow<String?>(null)
@@ -113,7 +119,9 @@ class ActiveDeliveryViewModel @Inject constructor(
                             isFinished = delivery.status.isTerminal,
                             route = aux.route,
                             isCalculatingRoute = aux.isCalculatingRoute,
-                            routeError = aux.routeError
+                            routeError = aux.routeError,
+                            arrivalState = aux.arrivalState,
+                            showArrivalSuggestion = aux.showArrivalSuggestion
                         )
                     }
                 }
@@ -129,6 +137,8 @@ class ActiveDeliveryViewModel @Inject constructor(
     private val _customerCache = MutableStateFlow<Customer?>(null)
     val customer: StateFlow<Customer?> = _customerCache.asStateFlow()
 
+    private var arrivalJob: Job? = null
+
     fun load(deliveryId: String) {
         if (_deliveryId.value == deliveryId) return
         _deliveryId.value = deliveryId
@@ -136,7 +146,54 @@ class ActiveDeliveryViewModel @Inject constructor(
         viewModelScope.launch {
             val delivery = deliveryRepository.getDelivery(deliveryId) ?: return@launch
             _customerCache.value = customerRepository.getCustomer(delivery.customerId)
+
+            // Start arrival detection if the delivery is ON_THE_WAY
+            if (delivery.status == DeliveryStatus.ON_THE_WAY) {
+                startArrivalDetection()
+            }
         }
+    }
+
+    /**
+     * Start observing the driver's proximity to the customer.
+     *
+     * Called automatically when the delivery is loaded in ON_THE_WAY state.
+     * Cancels when the delivery transitions to ARRIVED (or any terminal state).
+     *
+     * When isArrived=true, sets showArrivalSuggestion=true so the UI can
+     * auto-highlight the "Mark Arrived" button.
+     */
+    private fun startArrivalDetection() {
+        arrivalJob?.cancel()
+        val customer = _customerCache.value ?: return
+
+        arrivalJob = viewModelScope.launch {
+            observeArrival(customer.toLatLng()).collect { state ->
+                _aux.update {
+                    it.copy(
+                        arrivalState = state,
+                        showArrivalSuggestion = state.isArrived
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Stop arrival detection — called when the delivery transitions to ARRIVED
+     * or when the screen is destroyed.
+     */
+    private fun stopArrivalDetection() {
+        arrivalJob?.cancel()
+        arrivalJob = null
+    }
+
+    /**
+     * Dismiss the arrival suggestion (e.g. user tapped "Mark Arrived" manually
+     * or dismissed the banner).
+     */
+    fun dismissArrivalSuggestion() {
+        _aux.update { it.copy(showArrivalSuggestion = false) }
     }
 
     /**
@@ -153,7 +210,16 @@ class ActiveDeliveryViewModel @Inject constructor(
                 transitionDelivery(id, DeliveryStatus.ARRIVED)
             }
             result
-                .onSuccess { _aux.update { it.copy(isTransitioning = false) } }
+                .onSuccess {
+                    _aux.update {
+                        it.copy(
+                            isTransitioning = false,
+                            showArrivalSuggestion = false
+                        )
+                    }
+                    // Stop arrival detection — we've arrived
+                    stopArrivalDetection()
+                }
                 .onFailure { e ->
                     _aux.update {
                         it.copy(
@@ -268,11 +334,18 @@ class ActiveDeliveryViewModel @Inject constructor(
         _aux.update { it.copy(routeError = null) }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        stopArrivalDetection()
+    }
+
     private data class AuxState(
         val isTransitioning: Boolean = false,
         val error: String? = null,
         val route: RouteResult? = null,
         val isCalculatingRoute: Boolean = false,
-        val routeError: String? = null
+        val routeError: String? = null,
+        val arrivalState: ArrivalState? = null,
+        val showArrivalSuggestion: Boolean = false
     )
 }

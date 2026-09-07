@@ -133,4 +133,10 @@
     <string name="nav_stop">Stop navigation</string>
     <string name="nav_remaining">Remaining</string>
     <string name="nav_continue_straight">Continue straight</string>
+
+    <!-- Arrival Detection -->
+    <string name="arrival_detected">You\'ve arrived at the customer\'s location</string>
+    <string name="arrival_distance">Distance to customer: %1$s</string>
+    <string name="arrival_warming_up">Determining your location…</string>
+    <string name="arrival_suggestion">It looks like you\'ve arrived. Tap \"I arrived\" to confirm.</string>
 </resources>

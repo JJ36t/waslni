@@ -207,6 +207,15 @@ private fun ActiveDeliveryContent(
                 isCalculating = state.isCalculatingRoute,
                 error = state.routeError
             )
+
+            // Arrival suggestion banner (auto-detected arrival)
+            if (state.arrivalState != null) {
+                Spacer(Modifier.height(8.dp))
+                ArrivalSuggestionBanner(
+                    arrivalState = state.arrivalState,
+                    showSuggestion = state.showArrivalSuggestion
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))

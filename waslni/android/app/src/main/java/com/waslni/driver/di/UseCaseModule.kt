@@ -109,6 +109,11 @@ object UseCaseModule {
         engine: com.waslni.driver.core.maps.RoutingEngine
     ) = com.waslni.driver.domain.usecase.routing.CalculateRouteUseCase(engine)
 
+    // === Arrival Detection ===
+    @Provides fun provideObserveArrivalUseCase(
+        detector: com.waslni.driver.core.location.ArrivalDetector
+    ) = com.waslni.driver.domain.usecase.arrival.ObserveArrivalUseCase(detector)
+
     // === Auth ===
     @Provides fun provideLoginUseCase(repo: AuthRepository) = LoginUseCase(repo)
 

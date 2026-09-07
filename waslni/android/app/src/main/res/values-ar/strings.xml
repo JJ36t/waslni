@@ -131,4 +131,10 @@
     <string name="nav_stop">إيقاف الملاحة</string>
     <string name="nav_remaining">المتبقي</string>
     <string name="nav_continue_straight">تابع بشكل مستقيم</string>
+
+    <!-- Arrival Detection -->
+    <string name="arrival_detected">وصلت إلى موقع الزبون</string>
+    <string name="arrival_distance">المسافة للزبون: %1$s</string>
+    <string name="arrival_warming_up">جاري تحديد موقعك…</string>
+    <string name="arrival_suggestion">يبدو أنك وصلت. اضغط \"وصلت إلى الزبون\" للتأكيد.</string>
 </resources>
