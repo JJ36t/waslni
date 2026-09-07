@@ -77,3 +77,57 @@ Stage Summary:
 - Theme: Material 3, Dark/Light, Arabic RTL with system Sans font.
 - Navigation: single-activity, NavHost with 7 routes, bottom nav on 4 main destinations.
 - Next: Phase 3 (Local Data) — Room database with CustomerEntity, DeliveryEntity, SyncOperationEntity + DAOs + mappers + domain models + repository interfaces.
+
+---
+Task ID: phase-3
+Agent: main
+Task: Phase 3 — Local Data (Room): Build the complete local-first data layer with entities, DAOs, repositories, use cases, and Hilt wiring.
+
+Work Log:
+- Created directory tree: domain/{model,repository,usecase/customer}, data/local/{dao,entity,mapper}, data/repository, test/data/local/dao, test/domain/model.
+- Wrote domain/model/Customer.kt — pure Kotlin data class with init-block validation (name 2-120, phone 7-30, lat -90..90, lng -180..180, accuracy >=0).
+- Wrote domain/model/LatLng.kt — coordinate pair with Haversine distanceTo() for arrival detection.
+- Wrote domain/model/LocationResult.kt — GPS fix result with isAcceptable(threshold) and DEFAULT_THRESHOLD=10m.
+- Wrote domain/model/DeliveryStatus.kt — full state machine with isTerminal, isActive, allowedNextStates, canTransitionTo. Prevents illegal jumps like PENDING→DELIVERED.
+- Wrote domain/model/Delivery.kt — delivery entity with isStateConsistent() that validates timestamp/status invariants.
+- Wrote domain/model/SyncEnums.kt — SyncState (SYNCED/PENDING/FAILED) and SyncOperation (CREATE_CUSTOMER, UPDATE_CUSTOMER, DELETE_CUSTOMER, CREATE_DELIVERY, UPDATE_DELIVERY, COMPLETE_DELIVERY, CANCEL_DELIVERY).
+- Wrote domain/model/SyncOperation.kt — sync queue item with idempotencyKey for COMPLETE_DELIVERY.
+- Wrote data/local/entity/{CustomerEntity,DeliveryEntity,SyncOperationEntity}.kt — Room entities with indexes (phone, name, syncState, customerId, status, createdAt). FK RESTRICT on deliveries→customers.
+- Wrote data/local/dao/CustomerDao.kt — observeAll, search (name OR phone, NOCASE), observeById, observeCount, observePendingSyncCount, getById, getByPhone, insert, update, delete, updateSyncState, bulkUpdateSyncState.
+- Wrote data/local/dao/DeliveryDao.kt — observeAll, observeByDateRange, observeByStatus, observeByCustomer, observeById, observeCountByStatusSince, getActiveForCustomer, markStarted, markArrived, markCompleted, markCancelled.
+- Wrote data/local/dao/SyncOperationDao.kt — getPending (oldest first), getPendingBatch, observePendingCount, incrementRetry (auto-FAILED at maxRetries via SQL CASE), cleanOldSynced, deletePendingForEntity.
+- Wrote data/local/WaselDatabase.kt — @Database with 3 entities, version=1, exportSchema=true.
+- Wrote data/local/WaselConverters.kt — placeholder for future type converters.
+- Wrote data/local/mapper/{CustomerMapper,DeliveryMapper,SyncOperationMapper}.kt — bidirectional toDomain()/toEntity() with syncState handling.
+- Wrote domain/repository/{CustomerRepository,DeliveryRepository,SyncRepository}.kt — interfaces with Flow for reactive reads and suspend for writes.
+- Wrote data/repository/CustomerRepositoryImpl.kt — Offline-first: writes go to Room + enqueue SyncOperation. Duplicate phone detection. Active delivery check on delete.
+- Wrote data/repository/DeliveryRepositoryImpl.kt — State machine enforcement via canTransitionTo. Auto-generates idempotencyKey for COMPLETE_DELIVERY.
+- Wrote data/repository/SyncRepositoryImpl.kt — wraps SyncOperationDao with domain model mapping.
+- Wrote 8 customer use cases: AddCustomerUseCase, UpdateCustomerUseCase, UpdateCustomerLocationUseCase, DeleteCustomerUseCase, ObserveCustomersUseCase, SearchCustomersUseCase, GetCustomerUseCase, CheckDuplicatePhoneUseCase.
+- Wrote di/DatabaseModule.kt — provides WaselDatabase (singleton) + 3 DAOs.
+- Wrote di/RepositoryModule.kt — @Binds for 3 repository interfaces.
+- Wrote di/UseCaseModule.kt — @Provides for 8 use cases.
+- Wrote di/SerializationModule.kt — provides kotlinx.serialization Json instance (ignoreUnknownKeys, encodeDefaults).
+- Wrote 4 test files (39 test methods total):
+  * CustomerDaoTest — 12 tests covering insert, getById, observeAll (sort), search (name/phone/empty), update, delete, getByPhone, observeCount, updateSyncState, getBySyncState, observePendingSyncCount.
+  * DeliveryDaoTest — 9 tests covering insert, getActiveForCustomer, markCompleted, markCancelled, observeByDateRange, observeByStatus, observeCountByStatusSince, FK constraint violation.
+  * SyncOperationDaoTest — 8 tests covering getPending (ordering), observePendingCount, updateStatus, markFailed, incrementRetry (with auto-FAILED), cleanOldSynced (preserves PENDING), getLatestForEntity, getPendingBatch.
+  * DomainModelsTest — 18 tests covering Customer validation, DeliveryStatus state machine, LatLng.distanceTo Haversine, LocationResult.isAcceptable threshold logic.
+
+Stage Summary:
+- Phase 3 (Local Data) complete.
+- 32 new Kotlin files (28 main + 4 test) added on top of Phase 2's 16.
+- Total project: 52 Kotlin main files + 4 test files.
+- Layered architecture now functional:
+  * domain/model — pure Kotlin (no Android deps), validation in init blocks
+  * data/local — Room layer (entities, DAOs, mappers, database)
+  * data/repository — Offline-first implementations with sync queue wiring
+  * domain/usecase — 8 customer use cases
+  * di — 5 Hilt modules (App, Database, Repository, UseCase, Serialization)
+- Key design decisions implemented:
+  * No UNIQUE(phone) at DB level (allows offline duplicates before sync resolves) — enforced at repository layer instead.
+  * FK RESTRICT on deliveries→customers prevents silent loss of delivery history.
+  * SyncOperation payload is pre-serialized JSON at insert time (durable across app restarts).
+  * COMPLETE_DELIVERY auto-generates an idempotencyKey.
+  * State machine is enforced both in domain (DeliveryStatus.canTransitionTo) and repository (DeliveryRepositoryImpl.transition).
+- Next: Phase 4 (GPS & Location) — build LocationProvider interface + FusedLocationProvider implementation + permission handling + accuracy threshold logic + GetCurrentLocationUseCase.
