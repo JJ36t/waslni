@@ -939,3 +939,67 @@ Stage Summary:
   * Banner on Home screen — driver can resume an active delivery from anywhere
 - Navigation graph now has 10 routes: splash, login, home, customers, history, settings, add_customer, customer_details, edit_customer, capture_location, active_delivery.
 - Next: Phase 14 (Routing & ETA) — Mapbox Directions API integration: RoutingEngine interface, MapboxRoutingEngine implementation, CalculateRouteUseCase, display distance + ETA on Active Delivery screen, fallback to straight-line distance on routing failure.
+
+---
+Task ID: phase-14
+Agent: main
+Task: Phase 14 — Routing & ETA: Integrate Mapbox Directions API with RoutingEngine abstraction, CalculateRouteUseCase with straight-line fallback, display distance + ETA on Active Delivery screen.
+
+Work Log:
+- Created domain/model/RouteResult.kt:
+  * RouteResult data class: distanceMeters, durationSeconds, geometry (List<LatLng>), instructions, isFallback.
+  * Computed properties: distanceKm, durationMinutes (min 1), formattedDistance ("3.7 km" or "850 m"), formattedDuration ("9 min" or "1 hr 30 min").
+  * RouteInstruction data class: instruction, distanceMeters, durationSeconds, maneuverType, modifier, position.
+- Created core/maps/RoutingException.kt — sealed class: NoRouteFound, RoutingNetworkError, RoutingError.
+- Created core/maps/RoutingEngine.kt — interface: `suspend fun calculateRoute(from: LatLng, to: LatLng): RouteResult`. Infrastructure concern (Mapbox/OSRM), not domain.
+- Created core/maps/mapbox/MapboxRoutingEngine.kt:
+  * Uses MapboxDirections builder with PROFILE_DRIVING_TRAFFIC, steps=true, GEOMETRY_POLYLINE6, voiceInstructions, bannerInstructions.
+  * awaitResponse() wraps the async call in suspendCoroutine.
+  * Decodes polyline6 geometry into List<LatLng>.
+  * Extracts turn-by-turn instructions from route legs + steps.
+  * Maps IOException → RoutingNetworkError, empty routes → NoRouteFound, other → RoutingError.
+- Updated core/maps/MapsModule.kt — provides MapboxRoutingEngine as singleton RoutingEngine.
+- Created domain/usecase/routing/CalculateRouteUseCase.kt:
+  * Calls routingEngine.calculateRoute(from, to).
+  * On ANY failure (NoRouteFound, RoutingNetworkError, RoutingError, generic Exception) → straightLineFallback().
+  * Fallback: distance = Haversine(from, to), duration = distance / 8.33 m/s (30 km/h), geometry = [from, to], isFallback = true.
+  * Always returns a result — UI never shows "no route", always has at least approximate distance + ETA.
+- Updated di/UseCaseModule.kt — provides CalculateRouteUseCase.
+- Updated presentation/delivery/active/ActiveDeliveryViewModel.kt:
+  * Injected CalculateRouteUseCase + LocationProvider.
+  * Added route, isCalculatingRoute, routeError fields to UiState.
+  * calculateRoute() method: gets current driver location → calls CalculateRouteUseCase → stores RouteResult.
+  * Auto-calculation triggered by LaunchedEffect on delivery+customer+route state.
+  * AuxState extended with route/isCalculatingRoute/routeError.
+- Created presentation/delivery/active/RouteInfoCard.kt — card showing:
+  * Calculating state: spinner + "جاري حساب الطريق…"
+  * Ready (real route): "3.7 km" + "9 min" (no prefix)
+  * Ready (fallback): "≈ 3.7 km" + "≈ 9 min" + hint "مسار تقريبي"
+  * Error state: "تعذر حساب الطريق"
+  * RouteMetric composable with icon + label + value.
+- Updated presentation/delivery/active/ActiveDeliveryScreen.kt:
+  * LaunchedEffect auto-calculates route when ON_THE_WAY + customer loaded + no route yet.
+  * RouteInfoCard shown between StatusBanner and customer info (only when ON_THE_WAY).
+- Added 6 new string resources (route_calculating, route_distance, route_eta, route_fallback_hint, route_recalculate, route_error) in values/ + values-ar/.
+- Wrote 2 test files (18 test methods):
+  * CalculateRouteUseCaseTest.kt (8 tests) — returns real route on success, falls back on NoRouteFound/RoutingNetworkError/RoutingError/generic Exception, fallback duration = distance/speed, fallback geometry = [from, to], fallback for same point = 0 distance. Uses FakeRoutingEngine with controllable return + exception injection.
+  * RouteResultTest.kt (10 tests) — distanceKm conversion, durationMinutes min 1 + rounding, formattedDistance (km vs m), formattedDuration (min vs hr+min vs hr only), isFallback default false + set true.
+
+Stage Summary:
+- Phase 14 (Routing & ETA) complete.
+- 8 new Kotlin main files + 2 new test files added on top of Phase 13.
+- Total Android: 126 Kotlin main files + 24 test files = 150 Kotlin files.
+- Routing architecture:
+  * core/maps/RoutingEngine — interface (SDK-agnostic)
+  * core/maps/RoutingException — sealed exception hierarchy
+  * core/maps/mapbox/MapboxRoutingEngine — production impl using Mapbox Directions API
+  * domain/usecase/routing/CalculateRouteUseCase — with straight-line fallback
+  * presentation/delivery/active/RouteInfoCard — UI card showing distance + ETA
+- Key design decisions:
+  * Fallback strategy: CalculateRouteUseCase ALWAYS returns a result. If the routing engine fails (offline, API error, no route), it falls back to Haversine straight-line distance with estimated ETA (30 km/h). The UI shows "≈" prefix for fallback values + a hint "مسار تقريبي".
+  * Polyline6 decoding: implemented from scratch (no external dependency) — standard polyline algorithm with 1e6 precision factor.
+  * Auto-calculation: ActiveDeliveryScreen auto-calculates the route when the delivery is ON_THE_WAY + customer is loaded + no route has been calculated yet. The driver sees distance + ETA immediately on entering the screen.
+  * Route only shown when ON_THE_WAY — once the driver marks "arrived", the route is no longer relevant.
+  * Mapbox profile: driving-traffic (traffic-aware routing) for accurate ETA in urban Iraq.
+  * Steps + voice + banner instructions enabled — needed for Phase 15 (Navigation).
+- Next: Phase 15 (Navigation & Alerts) — Mapbox Navigation SDK integration: NavigationEngine interface, MapboxNavigationEngine implementation, turn-by-turn navigation, voice alerts, re-routing on deviation.

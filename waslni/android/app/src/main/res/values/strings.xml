@@ -116,4 +116,12 @@
     <!-- Home active delivery banner -->
     <string name="active_delivery_banner">You have an active delivery</string>
     <string name="active_delivery_continue">Continue delivery</string>
+
+    <!-- Routing / ETA -->
+    <string name="route_calculating">Calculating route…</string>
+    <string name="route_distance">Distance</string>
+    <string name="route_eta">ETA</string>
+    <string name="route_fallback_hint">Approximate route (navigation service unavailable)</string>
+    <string name="route_recalculate">Recalculate route</string>
+    <string name="route_error">Couldn\'t calculate route</string>
 </resources>

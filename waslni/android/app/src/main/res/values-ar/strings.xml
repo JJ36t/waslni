@@ -114,4 +114,12 @@
     <!-- Home active delivery banner -->
     <string name="active_delivery_banner">لديك توصيل نشط</string>
     <string name="active_delivery_continue">متابعة التوصيل</string>
+
+    <!-- Routing / ETA -->
+    <string name="route_calculating">جاري حساب الطريق…</string>
+    <string name="route_distance">المسافة</string>
+    <string name="route_eta">الوقت المتوقع</string>
+    <string name="route_fallback_hint">مسار تقريبي (غير متصل بخدمة الملاحة)</string>
+    <string name="route_recalculate">إعادة حساب الطريق</string>
+    <string name="route_error">تعذر حساب الطريق</string>
 </resources>

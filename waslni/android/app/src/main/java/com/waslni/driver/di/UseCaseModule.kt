@@ -104,6 +104,11 @@ object UseCaseModule {
     @Provides fun provideObserveActiveDeliveryUseCase(repo: DeliveryRepository) =
         ObserveActiveDeliveryUseCase(repo)
 
+    // === Routing ===
+    @Provides fun provideCalculateRouteUseCase(
+        engine: com.waslni.driver.core.maps.RoutingEngine
+    ) = com.waslni.driver.domain.usecase.routing.CalculateRouteUseCase(engine)
+
     // === Auth ===
     @Provides fun provideLoginUseCase(repo: AuthRepository) = LoginUseCase(repo)
 

@@ -2,14 +2,18 @@ package com.waslni.driver.presentation.delivery.active
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.waslni.driver.core.location.LocationProvider
 import com.waslni.driver.domain.model.Customer
 import com.waslni.driver.domain.model.Delivery
 import com.waslni.driver.domain.model.DeliveryStatus
+import com.waslni.driver.domain.model.LocationResult
+import com.waslni.driver.domain.model.RouteResult
 import com.waslni.driver.domain.repository.CustomerRepository
 import com.waslni.driver.domain.repository.DeliveryRepository
 import com.waslni.driver.domain.usecase.delivery.CancelDeliveryUseCase
 import com.waslni.driver.domain.usecase.delivery.CompleteDeliveryUseCase
 import com.waslni.driver.domain.usecase.delivery.TransitionDeliveryUseCase
+import com.waslni.driver.domain.usecase.routing.CalculateRouteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,7 +51,10 @@ data class ActiveDeliveryUiState(
     val customer: Customer? = null,
     val isTransitioning: Boolean = false,
     val error: String? = null,
-    val isFinished: Boolean = false  // true when DELIVERED or CANCELLED → pop back
+    val isFinished: Boolean = false,  // true when DELIVERED or CANCELLED → pop back
+    val route: RouteResult? = null,
+    val isCalculatingRoute: Boolean = false,
+    val routeError: String? = null
 ) {
     val status: DeliveryStatus?
         get() = delivery?.status
@@ -69,7 +76,9 @@ class ActiveDeliveryViewModel @Inject constructor(
     private val customerRepository: CustomerRepository,
     private val transitionDelivery: TransitionDeliveryUseCase,
     private val completeDelivery: CompleteDeliveryUseCase,
-    private val cancelDelivery: CancelDeliveryUseCase
+    private val cancelDelivery: CancelDeliveryUseCase,
+    private val calculateRoute: CalculateRouteUseCase,
+    private val locationProvider: LocationProvider
 ) : ViewModel() {
 
     private val _deliveryId = MutableStateFlow<String?>(null)
@@ -95,20 +104,16 @@ class ActiveDeliveryViewModel @Inject constructor(
                             isFinished = true
                         )
                     } else {
-                        // Load the customer for this delivery
-                        val customer = delivery.customerId.let { cid ->
-                            // Use a one-shot get since we don't need reactive updates
-                            // for the customer here (the delivery already re-emits
-                            // when the customer changes via the FK relationship).
-                            null  // Will be loaded separately below
-                        }
                         ActiveDeliveryUiState(
                             isLoading = false,
                             delivery = delivery,
-                            customer = customer,
+                            customer = _customerCache.value,
                             isTransitioning = aux.isTransitioning,
                             error = aux.error,
-                            isFinished = delivery.status.isTerminal
+                            isFinished = delivery.status.isTerminal,
+                            route = aux.route,
+                            isCalculatingRoute = aux.isCalculatingRoute,
+                            routeError = aux.routeError
                         )
                     }
                 }
@@ -215,8 +220,59 @@ class ActiveDeliveryViewModel @Inject constructor(
         _aux.update { it.copy(error = null) }
     }
 
+    /**
+     * Calculate the route from the driver's current location to the customer.
+     *
+     * Call this when the Active Delivery screen first loads (if status is ON_THE_WAY)
+     * or when the user taps "Recalculate route".
+     *
+     * The use case always returns a result — either the real route or a
+     * straight-line fallback (isFallback=true). The UI shows "≈" for fallback.
+     */
+    fun calculateRoute() {
+        val delivery = state.value.delivery ?: return
+        val customer = _customerCache.value ?: return
+        if (delivery.status != DeliveryStatus.ON_THE_WAY) return
+
+        viewModelScope.launch {
+            _aux.update {
+                it.copy(isCalculatingRoute = true, routeError = null)
+            }
+
+            // Get current driver location
+            val driverLoc = try {
+                locationProvider.getCurrentLocation()
+            } catch (e: Exception) {
+                _aux.update {
+                    it.copy(
+                        isCalculatingRoute = false,
+                        routeError = "تعذر تحديد موقعك الحالي"
+                    )
+                }
+                return@launch
+            }
+
+            // Calculate route (always returns a result — real or fallback)
+            val route = calculateRoute(driverLoc.toLatLng(), customer.toLatLng())
+
+            _aux.update {
+                it.copy(
+                    isCalculatingRoute = false,
+                    route = route
+                )
+            }
+        }
+    }
+
+    fun clearRouteError() {
+        _aux.update { it.copy(routeError = null) }
+    }
+
     private data class AuxState(
         val isTransitioning: Boolean = false,
-        val error: String? = null
+        val error: String? = null,
+        val route: RouteResult? = null,
+        val isCalculatingRoute: Boolean = false,
+        val routeError: String? = null
     )
 }

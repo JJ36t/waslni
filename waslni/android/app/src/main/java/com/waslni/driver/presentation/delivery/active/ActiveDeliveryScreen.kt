@@ -84,6 +84,16 @@ fun ActiveDeliveryScreen(
         viewModel.load(deliveryId)
     }
 
+    // Auto-calculate route when delivery is ON_THE_WAY + customer loaded + no route yet
+    LaunchedEffect(state.delivery?.id, state.customer?.id, state.route) {
+        if (state.delivery?.status == DeliveryStatus.ON_THE_WAY &&
+            state.customer != null &&
+            state.route == null &&
+            !state.isCalculatingRoute) {
+            viewModel.calculateRoute()
+        }
+    }
+
     // Pop back when finished (DELIVERED or CANCELLED)
     LaunchedEffect(state.isFinished) {
         if (state.isFinished && state.delivery != null) {
@@ -186,6 +196,15 @@ private fun ActiveDeliveryContent(
     ) {
         // Status banner
         StatusBanner(status = status)
+
+        // Route info card (only when ON_THE_WAY)
+        if (status == DeliveryStatus.ON_THE_WAY) {
+            RouteInfoCard(
+                route = state.route,
+                isCalculating = state.isCalculatingRoute,
+                error = state.routeError
+            )
+        }
 
         Spacer(Modifier.height(8.dp))
 
