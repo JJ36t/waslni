@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- English fallback strings (default). Arabic is in values-ar/. -->
+
+    <!-- App -->
+    <string name="app_name">Waselni</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">Map</string>
+    <string name="nav_customers">Customers</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Login -->
+    <string name="login_subtitle">Sign in to continue</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="login_button">Sign in</string>
+    <string name="toggle_password_visibility">Show/hide password</string>
+
+    <!-- Home -->
+    <string name="search_customer_hint">Search by name or phone</string>
+    <string name="map_placeholder">Map will appear here</string>
+    <string name="add_customer">Add customer</string>
+
+    <!-- Customer -->
+    <string name="add_customer_title">Add new customer</string>
+    <string name="customer_name">Customer name</string>
+    <string name="customer_phone">Phone number</string>
+    <string name="customer_location">Location</string>
+    <string name="customers_empty">No customers yet</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- History -->
+    <string name="history_empty">No deliveries yet</string>
+
+    <!-- Common -->
+    <string name="retry">Retry</string>
+    <string name="loading">Loading…</string>
+    <string name="error_generic">An unexpected error occurred</string>
+</resources>

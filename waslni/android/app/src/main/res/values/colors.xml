@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand colors — must match Theme.kt for the splash screen -->
+    <color name="brand_primary">#FF0F766E</color>
+    <color name="brand_primary_dark">#FF5EEAD4</color>
+
+    <!-- Window backgrounds -->
+    <color name="background_light">#FFF8FAFC</color>
+    <color name="background_dark">#FF0F172A</color>
+</resources>

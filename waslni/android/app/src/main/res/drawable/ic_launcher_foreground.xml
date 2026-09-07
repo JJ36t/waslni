@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon foreground — white location pin on transparent background -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Stylized location pin, centered in the safe zone (24-84) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,30
+                          C45,30 38,37 38,46
+                          C38,58 54,78 54,78
+                          C54,78 70,58 70,46
+                          C70,37 63,30 54,30 Z" />
+    <path
+        android:fillColor="#FF0F766E"
+        android:pathData="M54,42
+                          m-6,0
+                          a6,6 0 1,0 12,0
+                          a6,6 0 1,0 -12,0" />
+</vector>
