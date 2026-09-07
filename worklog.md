@@ -751,3 +751,101 @@ Stage Summary:
   * ErrorInterceptor never exposes backend internals — Arabic user-facing messages
   * AuthRepository.logout() is best-effort: if the network call fails, local session is still cleared
 - Next: Phase 12 (Offline Sync) — SyncWorker via WorkManager that reads pending sync_operations from Room, calls /sync, processes results (mark SYNCED / FAILED, handle CONFLICT by adopting server_state), retry with exponential backoff, network constraint (only run when CONNECTED).
+
+---
+Task ID: phase-12
+Agent: main
+Task: Phase 12 — Offline Sync: Build the SyncWorker (WorkManager CoroutineWorker) that drains the local sync queue, calls POST /sync, processes results (SUCCESS/CONFLICT/FAILED/IGNORED), applies server_changes (download direction), and persists the latest_sync_timestamp for incremental sync.
+
+Work Log:
+- Created data/sync/SyncPreferences.kt — DataStore-backed preferences storing: latest_sync_timestamp (the server watermark for incremental sync), last_sync_attempt_at, last_sync_success_at. Uses DataStore (not EncryptedSharedPreferences) because timestamps are not sensitive.
+- Created data/sync/SyncPayloadBuilder.kt — builds SyncOperationDto from pending SyncOperationEntity + the related customer/delivery entity. Handles all 7 operation types (CREATE/UPDATE/DELETE_CUSTOMER, CREATE/UPDATE/COMPLETE/CANCEL_DELIVERY). For UPDATE_CUSTOMER includes updated_at for conflict detection. For COMPLETE/CANCEL_DELIVERY attaches the idempotency_key.
+- Created data/sync/SyncResultProcessor.kt — processes the results array from /sync response:
+  * SUCCESS → mark sync_operation SYNCED, apply server_state to entity (upsert with syncState=SYNCED)
+  * CONFLICT → adopt server_state (latest-write-wins), mark operation SYNCED (resolved)
+  * IGNORED → mark operation SYNCED (no longer applicable, e.g. DELETE on already-deleted entity)
+  * FAILED → increment retry count, auto-FAILED at MAX_RETRIES=5
+  * Unknown status → mark FAILED
+  * Returns SyncStats (total, succeeded, conflicts, failed, ignored)
+- Created data/sync/ServerChangeApplier.kt — applies server_changes (download direction) to Room:
+  * CREATE/UPDATE_CUSTOMER → upsert CustomerEntity with syncState=SYNCED
+  * DELETE_CUSTOMER → deleteById
+  * CREATE/UPDATE/COMPLETE/CANCEL_DELIVERY → upsert DeliveryEntity with syncState=SYNCED
+  * Idempotent — re-applying same change produces same state
+  * Malformed changes are skipped without throwing (doesn't block others)
+  * Enables multi-device sync: change on Device A → server → Device B receives as server_change
+- Created data/sync/SyncWorker.kt — HiltWorker CoroutineWorker:
+  * Reads pending sync_operations from Room
+  * If empty → runDownloadOnlySync() to fetch server_changes
+  * Builds SyncRequestDto with all pending operations + latest_sync_timestamp
+  * Calls SyncApi.sync()
+  * Processes results via SyncResultProcessor
+  * Applies server_changes via ServerChangeApplier
+  * Persists new latest_sync_timestamp + last_sync_success_at
+  * Cleans up SYNCED rows older than 7 days
+  * Returns Result.retry() on network/server errors, Result.success() otherwise
+  * Even if some ops FAILED, returns success (permanent failures won't be fixed by retry)
+- Created data/sync/SyncScheduler.kt — schedules SyncWorker via WorkManager:
+  * scheduleImmediateSync() — OneTimeWorkRequest with ExistingWorkPolicy.KEEP (called after every local mutation)
+  * schedulePeriodicSync() — PeriodicWorkRequest every 15 minutes (called on app startup)
+  * Both use NetworkType.CONNECTED constraint + exponential backoff (30s → 1hr)
+  * cancelAll() on logout
+- Created core/network/NetworkMonitor.kt — monitors connectivity via ConnectivityManager:
+  * isOnline: StateFlow<Boolean> for UI
+  * observe(): Flow<NetworkState> for fine-grained monitoring
+  * Checks NET_CAPABILITY_INTERNET + NET_CAPABILITY_VALIDATED (not just "connected")
+  * Used by HomeViewModel to show Online/Offline indicator
+- Created domain/usecase/sync/ScheduleSyncUseCase.kt — wraps SyncScheduler.scheduleImmediateSync()
+- Created domain/usecase/sync/ObservePendingSyncCountUseCase.kt — wraps SyncRepository.observePendingCount()
+- Created di/SyncModule.kt — provides SyncScheduler (singleton, @ApplicationContext)
+- Updated di/UseCaseModule.kt — provides ScheduleSyncUseCase + ObservePendingSyncCountUseCase
+- Updated data/repository/CustomerRepositoryImpl.kt — injects ScheduleSyncUseCase, calls scheduleSync() after every enqueueSyncOperation (add/update/delete customer)
+- Updated data/repository/DeliveryRepositoryImpl.kt — same pattern, calls scheduleSync() after every delivery operation
+- Updated WaselApp.kt — calls syncScheduler.schedulePeriodicSync() in onCreate()
+- Updated presentation/home/HomeViewModel.kt:
+  * Added ObservePendingSyncCountUseCase + NetworkMonitor injection
+  * Combined 6 flows: customers, activeIds, driverLocation, selectedId, isOnline, pendingSyncCount
+  * HomeUiState now includes isOnline + pendingSyncCount fields
+- Created presentation/home/SyncStatusBadge.kt — compact pill showing:
+  * 🟢 "متصل" (online, no pending) — green
+  * 🟠 "غير متصل" (offline) — red, CloudOff icon
+  * 🔵 "X بانتظار المزامنة" (online with pending) — primary, Sync icon
+- Updated presentation/home/HomeScreen.kt — SyncStatusBadge below the search bar
+- Added 6 new string resources (sync_pending_count, sync_online, sync_offline, sync_in_progress) in values/ + values-ar/
+- Wrote 2 test files (18 test methods):
+  * SyncResultProcessorTest.kt (9 tests) — SUCCESS marks SYNCED, SUCCESS with server_state upserts entity, CONFLICT adopts server_state + marks SYNCED, IGNORED marks SYNCED, FAILED increments retry, unknown status marks FAILED, empty results, mixed batch, delivery server_state upsert.
+  * ServerChangeApplierTest.kt (9 tests) — CREATE_CUSTOMER inserts with SYNCED, UPDATE_CUSTOMER upserts, DELETE_CUSTOMER calls deleteById, CREATE_DELIVERY inserts, COMPLETE_DELIVERY updates with completed_at, multiple changes all applied, malformed change skipped, empty changes returns zero.
+
+Stage Summary:
+- Phase 12 (Offline Sync) complete.
+- 11 new Kotlin main files + 2 new test files added on top of Phase 11.
+- Total Android: 112 Kotlin main files + 20 test files = 132 Kotlin files.
+- Sync architecture (Offline First fully realized):
+  * Write path: UI → UseCase → Repository (writes to Room + enqueues SyncOperation + calls scheduleSync())
+  * Sync path: ScheduleSyncUseCase → SyncScheduler → WorkManager → SyncWorker
+  * Upload: SyncWorker reads pending ops → builds payload via SyncPayloadBuilder → POST /sync
+  * Results: SyncResultProcessor marks ops SYNCED/FAILED, adopts server_state on CONFLICT
+  * Download: ServerChangeApplier applies server_changes to Room (multi-device sync)
+  * Watermark: SyncPreferences persists latest_sync_timestamp for incremental sync
+- Key design decisions:
+  * WorkManager with NetworkType.CONNECTED constraint — sync only runs when online
+  * ExistingWorkPolicy.KEEP — 10 quick edits don't enqueue 10 syncs; the first one drains everything
+  * Exponential backoff (30s → 1hr) — WorkManager handles retry timing
+  * MAX_RETRIES=5 — after 5 failed attempts, operation is marked FAILED permanently (user can discard)
+  * Download-only sync runs even when upload queue is empty — picks up multi-device changes
+  * Conflict resolution on CONFLICT: adopt server_state (latest-write-wins) + mark operation SYNCED (resolved, don't retry)
+  * IGNORED for DELETE on already-deleted entity — safe retry, no error shown to user
+  * Periodic cleanup of SYNCED rows older than 7 days — keeps sync_operations table small
+  * NetworkMonitor checks NET_CAPABILITY_VALIDATED — detects captive portals (connected but no internet)
+- UI:
+  * SyncStatusBadge in HomeScreen shows online/offline/pending count
+  * Badge color-coded: green (online), red (offline), primary (pending)
+  * Updates reactively via StateFlow
+- The app is now FULLY offline-capable:
+  * All writes go to Room first → UI updates immediately
+  * SyncOperation enqueued for each mutation
+  * scheduleSync() fires WorkManager immediately
+  * WorkManager runs when network is available
+  * Results processed → Room updated with server_state
+  * Multi-device changes propagated via server_changes
+- Next: Phase 13 (Delivery Flow) — wire StartDeliveryUseCase + CompleteDeliveryUseCase to the UI, Customer Details "Start Delivery" button, Active Delivery screen, arrival detection integration.

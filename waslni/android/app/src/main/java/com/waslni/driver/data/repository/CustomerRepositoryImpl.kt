@@ -11,6 +11,7 @@ import com.waslni.driver.domain.model.SyncOperation as SyncOp
 import com.waslni.driver.domain.model.SyncOperationStatus
 import com.waslni.driver.domain.model.SyncState
 import com.waslni.driver.domain.repository.CustomerRepository
+import com.waslni.driver.domain.usecase.sync.ScheduleSyncUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
@@ -37,7 +38,8 @@ class CustomerRepositoryImpl @Inject constructor(
     private val customerDao: CustomerDao,
     private val deliveryDao: DeliveryDao,
     private val syncDao: SyncOperationDao,
-    private val json: Json
+    private val json: Json,
+    private val scheduleSync: ScheduleSyncUseCase
 ) : CustomerRepository {
 
     override fun observeAll(): Flow<List<Customer>> =
@@ -142,6 +144,8 @@ class CustomerRepositoryImpl @Inject constructor(
             status = SyncOperationStatus.PENDING
         )
         syncDao.insert(op.toEntity())
+        // Schedule an immediate sync so the operation drains ASAP when online.
+        scheduleSync()
     }
 }
 

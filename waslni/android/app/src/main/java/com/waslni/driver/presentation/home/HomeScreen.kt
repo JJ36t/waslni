@@ -136,15 +136,22 @@ fun HomeScreen(
                 .padding(16.dp)
                 .align(Alignment.TopCenter)
         ) {
-            OutlinedTextField(
-                value = "",
-                onValueChange = {},
-                placeholder = { Text(stringResource(R.string.search_customer_hint)) },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                readOnly = true,
-                enabled = false,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column {
+                OutlinedTextField(
+                    value = "",
+                    onValueChange = {},
+                    placeholder = { Text(stringResource(R.string.search_customer_hint)) },
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    readOnly = true,
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                SyncStatusBadge(
+                    isOnline = state.isOnline,
+                    pendingSyncCount = state.pendingSyncCount
+                )
+            }
         }
 
         // === Empty state hint ===

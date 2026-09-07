@@ -90,4 +90,10 @@
     <!-- Edit Customer -->
     <string name="edit_customer_title">Edit customer</string>
     <string name="update_location">Update location</string>
+
+    <!-- Sync status -->
+    <string name="sync_pending_count">%1$d pending sync</string>
+    <string name="sync_online">Online</string>
+    <string name="sync_offline">Offline</string>
+    <string name="sync_in_progress">Syncing…</string>
 </resources>

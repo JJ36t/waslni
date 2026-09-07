@@ -88,4 +88,10 @@
     <!-- Edit Customer -->
     <string name="edit_customer_title">تعديل الزبون</string>
     <string name="update_location">تحديث الموقع</string>
+
+    <!-- Sync status -->
+    <string name="sync_pending_count">%1$d بانتظار المزامنة</string>
+    <string name="sync_online">متصل</string>
+    <string name="sync_offline">غير متصل</string>
+    <string name="sync_in_progress">جاري المزامنة…</string>
 </resources>

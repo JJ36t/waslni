@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.waslni.driver.core.location.LocationProvider
 import com.waslni.driver.core.maps.model.MapMarker
 import com.waslni.driver.core.maps.model.MarkerType
+import com.waslni.driver.core.network.NetworkMonitor
 import com.waslni.driver.domain.model.Customer
 import com.waslni.driver.domain.model.LocationResult
 import com.waslni.driver.domain.usecase.customer.ObserveCustomersUseCase
 import com.waslni.driver.domain.usecase.delivery.ObserveActiveDeliveryCustomerIdsUseCase
+import com.waslni.driver.domain.usecase.sync.ObservePendingSyncCountUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,7 +35,9 @@ data class HomeUiState(
     val customers: List<Customer> = emptyList(),
     val activeCustomerIds: Set<String> = emptySet(),
     val driverLocation: LocationResult? = null,
-    val selectedCustomerId: String? = null
+    val selectedCustomerId: String? = null,
+    val isOnline: Boolean = true,
+    val pendingSyncCount: Int = 0
 ) {
     /**
      * Compute the marker list. Called from the UI; we keep it as a function
@@ -75,7 +79,9 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     observeCustomers: ObserveCustomersUseCase,
     observeActiveIds: ObserveActiveDeliveryCustomerIdsUseCase,
-    private val locationProvider: LocationProvider
+    observePendingSync: ObservePendingSyncCountUseCase,
+    private val locationProvider: LocationProvider,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _driverLocation = MutableStateFlow<LocationResult?>(null)
@@ -89,13 +95,26 @@ class HomeViewModel @Inject constructor(
         observeCustomers(),
         observeActiveIds(),
         _driverLocation,
-        _selectedCustomerId
-    ) { customers, activeIds, driverLoc, selectedId ->
+        _selectedCustomerId,
+        networkMonitor.isOnline,
+        observePendingSync()
+    ) { values ->
+        @Suppress("UNCHECKED_CAST")
+        val customers = values[0] as List<Customer>
+        @Suppress("UNCHECKED_CAST")
+        val activeIds = values[1] as Set<String>
+        val driverLoc = values[2] as LocationResult?
+        val selectedId = values[3] as String?
+        val isOnline = values[4] as Boolean
+        val pendingCount = values[5] as Int
+
         HomeUiState(
             customers = customers,
             activeCustomerIds = activeIds,
             driverLocation = driverLoc,
-            selectedCustomerId = selectedId
+            selectedCustomerId = selectedId,
+            isOnline = isOnline,
+            pendingSyncCount = pendingCount
         )
     }.stateIn(
         scope = viewModelScope,

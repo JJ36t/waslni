@@ -17,6 +17,10 @@ import com.waslni.driver.domain.usecase.customer.UpdateCustomerLocationUseCase
 import com.waslni.driver.domain.usecase.customer.UpdateCustomerUseCase
 import com.waslni.driver.domain.usecase.delivery.ObserveActiveDeliveryCustomerIdsUseCase
 import com.waslni.driver.domain.usecase.location.GetCurrentLocationUseCase
+import com.waslni.driver.domain.usecase.sync.ObservePendingSyncCountUseCase
+import com.waslni.driver.domain.usecase.sync.ScheduleSyncUseCase
+import com.waslni.driver.data.sync.SyncScheduler
+import com.waslni.driver.domain.repository.SyncRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -85,4 +89,11 @@ object UseCaseModule {
     @Provides fun provideHasSessionUseCase(repo: AuthRepository) = HasSessionUseCase(repo)
 
     @Provides fun provideVerifySessionUseCase(repo: AuthRepository) = VerifySessionUseCase(repo)
+
+    // === Sync ===
+    @Provides fun provideScheduleSyncUseCase(scheduler: SyncScheduler) =
+        ScheduleSyncUseCase(scheduler)
+
+    @Provides fun provideObservePendingSyncCountUseCase(repo: SyncRepository) =
+        ObservePendingSyncCountUseCase(repo)
 }
