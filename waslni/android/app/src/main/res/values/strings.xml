@@ -65,4 +65,13 @@
     <string name="location_accuracy_poor_message">Location accuracy is low (%1$.1fm). Wait a moment and try again.</string>
     <string name="location_capture_again">Re-capture</string>
     <string name="location_confirm">Confirm location</string>
+
+    <!-- Map / Home -->
+    <string name="map_driver_location">Your current location</string>
+    <string name="map_customer_marker">Customer</string>
+    <string name="map_active_marker">Active delivery</string>
+    <string name="map_no_customers_hint">Add a new customer to get started</string>
+    <string name="customer_call">Call</string>
+    <string name="customer_start_delivery">Start delivery</string>
+    <string name="customer_view_details">Details</string>
 </resources>

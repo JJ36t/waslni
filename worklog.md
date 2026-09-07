@@ -178,3 +178,71 @@ Stage Summary:
   * Permission state has 4 distinct states (UNKNOWN, GRANTED, DENIED, PERMANENTLY_DENIED) — UI shows the right dialog for each.
   * FakeLocationProvider exposes knobs for every behavior the tests need to drive (no Robolectric required for use case/VM tests).
 - Next: Phase 5 (Maps) — Mapbox integration: MapProvider interface, MapboxMapProvider impl, HomeScreen with full-screen map, driver marker, customer markers from Room, marker interaction.
+
+---
+Task ID: phase-5
+Agent: main
+Task: Phase 5 — Maps (Mapbox): Integrate Mapbox, build MapProvider abstraction, render driver + customer markers on the Home screen with marker interaction (bottom sheet).
+
+Work Log:
+- Created core/maps/ package with model/, mapbox/ subpackages.
+- Wrote core/maps/model/MapModels.kt:
+  * MarkerType enum (DRIVER, CUSTOMER, ACTIVE, DELIVERED, CANCELLED)
+  * MapMarker data class (id, position, type, data)
+  * CameraTarget sealed interface (Center / Fit)
+  * MapTapResult sealed interface (OnMarker / OnPoint)
+- Wrote core/maps/MapProvider.kt — interface with attach(), detach(), setMarkers(), moveCamera(), observeTaps() Flow, isReady() Flow. Lifecycle contract: attach() once per host, detach() releases resources.
+- Wrote core/maps/mapbox/MapboxMapProvider.kt — production implementation:
+  * Uses MapView (owned by Composable via AndroidView), bind(mapView) method
+  * Loads Style.MAPBOX_STREETS, sets _isReady=true on style load
+  * Uses PointAnnotationManager for markers (single manager, diffable updates)
+  * OnMapClickListener with hitTest() — finds closest marker within 50m radius
+  * Marker colors via colorHex() extension matching Color.kt constants
+  * Camera flyTo for Center, cameraForCoordinates + flyTo for Fit
+- Wrote core/maps/MapsModule.kt — Hilt module binding MapboxMapProvider as singleton MapProvider.
+- Wrote domain/usecase/delivery/ObserveActiveDeliveryCustomerIdsUseCase.kt — streams Set<String> of customer IDs with active deliveries (ON_THE_WAY). Used to color those markers as ACTIVE.
+- Updated di/UseCaseModule.kt to provide the new use case.
+- Wrote presentation/home/HomeViewModel.kt:
+  * HiltViewModel injecting ObserveCustomersUseCase, ObserveActiveDeliveryCustomerIdsUseCase, LocationProvider
+  * Combines 4 flows: customers, activeCustomerIds, driverLocation, selectedCustomerId → single HomeUiState
+  * startObservingDriverLocation() — low-frequency 15s updates when permission granted
+  * onMarkerClicked(id) / onDismissSelection() for bottom sheet state
+  * HomeUiState.markers() pure function deriving MapMarker list (DRIVER first, then customers colored by active state)
+- Rewrote presentation/home/HomeScreen.kt:
+  * Acquires MapProvider via Hilt EntryPoint (composables can't @Inject)
+  * MapProviderEntryPoint interface for the entry point
+  * AndroidView factory creates MapView, calls MapboxMapProvider.bind()
+  * LaunchedEffect collects isReady() and observeTaps()
+  * LaunchedEffect on state changes → setMarkers() + moveCamera() to driver
+  * LocationPermissionGate wraps the map (still shows map if denied, just no driver marker)
+  * Empty state hint when customers list is empty
+  * "My location" FAB (bottom-end) + "Add customer" FAB (bottom-start)
+  * ModalBottomSheet for selected customer: name, phone, coordinates, Start/Call/Details buttons
+  * Call button uses Intent.ACTION_DIAL with tel: URI
+  * DisposableEffect.onDispose calls mapProvider.detach()
+- Added 7 new string resources in values/ and values-ar/ for: map_driver_location, map_customer_marker, map_active_marker, map_no_customers_hint, customer_call, customer_start_delivery, customer_view_details.
+- Wrote 3 test files (32 test methods):
+  * FakeMapProvider.kt — test double capturing lastMarkers, lastCameraTarget, call counts; supports emitTap() and setReady().
+  * MapProviderContractTest.kt — 11 tests: attach/detach counts, setMarkers capture and replace, moveCamera with Center/Fit targets, isReady flow, observeTaps emits OnMarker/OnPoint, initial state.
+  * HomeUiStateMarkersTest.kt — 11 tests: empty state, DRIVER marker from driverLocation, CUSTOMER vs ACTIVE based on activeCustomerIds, driver marker first, marker positions, multi-customer order, ghost-active-id ignored, data payload correctness.
+
+Stage Summary:
+- Phase 5 (Maps) complete.
+- 6 new Kotlin main files + 3 new test files added on top of Phase 4.
+- Total project: 69 Kotlin main files + 11 test files = 80 Kotlin files.
+- Map architecture:
+  * core/maps/model/ — MarkerType, MapMarker, CameraTarget, MapTapResult
+  * core/maps/MapProvider — interface (SDK-agnostic)
+  * core/maps/mapbox/MapboxMapProvider — production impl using Mapbox SDK
+  * core/maps/MapsModule — Hilt binding
+  * presentation/home/HomeViewModel — combines customer + delivery + location flows → markers
+  * presentation/home/HomeScreen — full-screen map + FABs + bottom sheet
+- Key design decisions:
+  * MapView is owned by the Composable (via AndroidView), not by the provider. Provider binds to it via bind(mapView). This keeps Compose lifecycle in control.
+  * Marker IDs are stable ("driver", "customer-{id}"). Mapbox SDK diffs by these.
+  * Tap hit-testing uses 50m Haversine radius — forgiving for fingers on small markers.
+  * Driver marker rendered first so customer markers paint on top.
+  * activeCustomerIds drives marker color (CUSTOMER → ACTIVE) without touching domain models.
+  * Composables acquire MapProvider via Hilt EntryPoint (composables can't @Inject).
+  * Low-frequency driver updates (15s) on home screen for battery. Higher frequency (3s) reserved for navigation in Phase 15.
+- Next: Phase 6 (Customer Management) — full CRUD: AddCustomerViewModel wired to AddCustomerUseCase, real customer list with search, edit/delete customer screens, customer details screen, duplicate phone detection, location capture integrated into add flow.

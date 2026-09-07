@@ -1,6 +1,7 @@
 package com.waslni.driver.di
 
 import com.waslni.driver.core.location.LocationProvider
+import com.waslni.driver.domain.repository.DeliveryRepository
 import com.waslni.driver.domain.usecase.customer.AddCustomerUseCase
 import com.waslni.driver.domain.usecase.customer.CheckDuplicatePhoneUseCase
 import com.waslni.driver.domain.usecase.customer.DeleteCustomerUseCase
@@ -9,6 +10,7 @@ import com.waslni.driver.domain.usecase.customer.ObserveCustomersUseCase
 import com.waslni.driver.domain.usecase.customer.SearchCustomersUseCase
 import com.waslni.driver.domain.usecase.customer.UpdateCustomerLocationUseCase
 import com.waslni.driver.domain.usecase.customer.UpdateCustomerUseCase
+import com.waslni.driver.domain.usecase.delivery.ObserveActiveDeliveryCustomerIdsUseCase
 import com.waslni.driver.domain.usecase.location.GetCurrentLocationUseCase
 import dagger.Module
 import dagger.Provides
@@ -65,4 +67,8 @@ object UseCaseModule {
     @Provides fun provideGetCurrentLocationUseCase(
         provider: LocationProvider
     ) = GetCurrentLocationUseCase(provider)
+
+    @Provides fun provideObserveActiveDeliveryCustomerIdsUseCase(
+        repo: DeliveryRepository
+    ) = ObserveActiveDeliveryCustomerIdsUseCase(repo)
 }

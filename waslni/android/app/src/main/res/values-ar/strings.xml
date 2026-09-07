@@ -63,4 +63,13 @@
     <string name="location_accuracy_poor_message">دقة الموقع منخفضة (%1$.1fm). انتظر لحظة وحاول مرة أخرى.</string>
     <string name="location_capture_again">إعادة الالتقاط</string>
     <string name="location_confirm">تأكيد الموقع</string>
+
+    <!-- Map / Home -->
+    <string name="map_driver_location">موقعك الحالي</string>
+    <string name="map_customer_marker">زبون</string>
+    <string name="map_active_marker">توصيل نشط</string>
+    <string name="map_no_customers_hint">أضف زبونًا جديدًا للبدء</string>
+    <string name="customer_call">اتصال</string>
+    <string name="customer_start_delivery">بدء التوصيل</string>
+    <string name="customer_view_details">التفاصيل</string>
 </resources>
