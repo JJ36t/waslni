@@ -42,6 +42,8 @@ object Routes {
     const val ACTIVE_DELIVERY = "delivery/active/{deliveryId}"
     const val NAVIGATION = "navigation/{deliveryId}"
 
+    fun activeDelivery(deliveryId: String) = "delivery/active/$deliveryId"
+
     // === Location flow ===
     const val CAPTURE_LOCATION = "location/capture"
 

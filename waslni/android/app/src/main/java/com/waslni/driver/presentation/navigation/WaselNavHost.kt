@@ -102,7 +102,10 @@ fun WaselNavHost() {
             composable(Routes.HOME) {
                 HomeScreen(
                     onAddCustomerClick = { navController.navigate(Routes.ADD_CUSTOMER) },
-                    onCustomerClick = { id -> navController.navigate(Routes.customerDetails(id)) }
+                    onCustomerClick = { id -> navController.navigate(Routes.customerDetails(id)) },
+                    onContinueDelivery = { deliveryId ->
+                        navController.navigate(Routes.activeDelivery(deliveryId))
+                    }
                 )
             }
             composable(Routes.CUSTOMERS) {
@@ -135,7 +138,22 @@ fun WaselNavHost() {
                     customerId = customerId,
                     onBack = { navController.popBackStack() },
                     onEdit = { id -> navController.navigate(Routes.editCustomer(id)) },
-                    onDeleted = { navController.popBackStack() }
+                    onDeleted = { navController.popBackStack() },
+                    onStartDelivery = { deliveryId ->
+                        navController.navigate(Routes.activeDelivery(deliveryId))
+                    }
+                )
+            }
+
+            composable(
+                route = Routes.ACTIVE_DELIVERY,
+                arguments = listOf(navArgument("deliveryId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val deliveryId = backStackEntry.arguments?.getString("deliveryId") ?: return@composable
+                com.waslni.driver.presentation.delivery.active.ActiveDeliveryScreen(
+                    deliveryId = deliveryId,
+                    onBack = { navController.popBackStack() },
+                    onFinished = { navController.popBackStack() }
                 )
             }
 

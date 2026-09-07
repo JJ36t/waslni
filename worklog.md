@@ -849,3 +849,93 @@ Stage Summary:
   * Results processed → Room updated with server_state
   * Multi-device changes propagated via server_changes
 - Next: Phase 13 (Delivery Flow) — wire StartDeliveryUseCase + CompleteDeliveryUseCase to the UI, Customer Details "Start Delivery" button, Active Delivery screen, arrival detection integration.
+
+---
+Task ID: phase-13
+Agent: main
+Task: Phase 13 — Delivery Flow: Wire the delivery state machine to the UI. StartDelivery from Customer Details, Active Delivery screen with state-driven buttons, complete/cancel flow, active delivery banner in Home.
+
+Work Log:
+- Created 5 delivery use cases:
+  * StartDeliveryUseCase — calls DeliveryRepository.createDelivery(customerId), returns Delivery (ON_THE_WAY + startedAt=now)
+  * TransitionDeliveryUseCase — calls repository.transition(deliveryId, newStatus), enforces state machine
+  * CompleteDeliveryUseCase — wraps TransitionDeliveryUseCase with target=DELIVERED
+  * CancelDeliveryUseCase — wraps TransitionDeliveryUseCase with target=CANCELLED
+  * ObserveActiveDeliveryUseCase — combines ON_THE_WAY + ARRIVED flows, returns the active delivery (or null)
+- Updated di/UseCaseModule.kt — provides all 5 new delivery use cases.
+- Updated presentation/customers/CustomerDetailsViewModel.kt:
+  * Injected StartDeliveryUseCase
+  * Added isStartingDelivery, startedDeliveryId, startDeliveryError fields to UiState
+  * startDelivery() calls the use case, on success sets startedDeliveryId (screen navigates to Active Delivery)
+  * clearStartedDeliveryId() + clearStartDeliveryError() for cleanup
+- Updated presentation/customers/CustomerDetailsScreen.kt:
+  * Added onStartDelivery: (String) -> Unit parameter
+  * "Start Delivery" button now calls viewModel::startDelivery
+  * Button shows CircularProgressIndicator when isStartingDelivery
+  * LaunchedEffect on startedDeliveryId → calls onStartDelivery(id) + clearStartedDeliveryId
+  * SnackbarHost shows startDeliveryError
+- Created presentation/delivery/active/ActiveDeliveryViewModel.kt:
+  * HiltViewModel injecting DeliveryRepository, CustomerRepository, TransitionDeliveryUseCase, CompleteDeliveryUseCase, CancelDeliveryUseCase
+  * _deliveryId flow + flatMapLatest on deliveryRepository.observeById
+  * Combined with _aux state (isTransitioning, error)
+  * ActiveDeliveryUiState with computed properties: canMarkArrived (ON_THE_WAY + !transitioning), canComplete (ARRIVED + !transitioning), canCancel (isActive + !transitioning), isFinished (terminal status)
+  * markArrived() → transition to ARRIVED
+  * complete() → completeDelivery use case (ARRIVED → DELIVERED)
+  * cancel() → cancelDelivery use case (any non-terminal → CANCELLED)
+  * customer cache loaded in parallel via customerRepository.getCustomer
+  * isFinished becomes true when status is DELIVERED or CANCELLED → screen pops back
+- Created presentation/delivery/active/ActiveDeliveryScreen.kt:
+  * TopAppBar with back button
+  * StatusBanner with color-coded status (orange=ON_THE_WAY, blue=ARRIVED, green=DELIVERED, red=CANCELLED)
+  * Customer info (name + phone with call button)
+  * Timestamp rows (started_at, arrived_at, completed_at)
+  * State-driven buttons:
+    - ON_THE_WAY: "وصلت إلى الزبون" (mark arrived) + Call + Cancel
+    - ARRIVED: "تم التسليم" (complete) + Cancel
+    - Terminal: no buttons (screen auto-pops)
+  * Cancel shows confirmation dialog
+  * LaunchedEffect on isFinished → onFinished() callback (pop back)
+  * Loading state while delivery loads
+  * Error snackbar
+- Created presentation/home/ActiveDeliveryBanner.kt — orange banner shown on Home when there's an active delivery:
+  * LocalShipping icon
+  * "لديك توصيل نشط" + customer name (if available)
+  * "متابعة التوصيل" label
+  * Tappable → navigates to Active Delivery screen
+- Updated presentation/home/HomeViewModel.kt:
+  * Injected ObserveActiveDeliveryUseCase
+  * Combined 7 flows: customers, activeIds, driverLocation, selectedId, isOnline, pendingSync, activeDelivery
+  * HomeUiState now includes activeDeliveryId + activeDeliveryCustomerId
+- Updated presentation/home/HomeScreen.kt:
+  * Added onContinueDelivery: (String) -> Unit parameter
+  * ActiveDeliveryBanner shown above the FABs when activeDeliveryId != null
+  * Banner shows the active customer's name (looked up from state.customers)
+- Updated presentation/navigation/Routes.kt — added activeDelivery(deliveryId) helper.
+- Updated presentation/navigation/WaselNavHost.kt:
+  * CustomerDetailsScreen now passes onStartDelivery callback → navigates to Routes.activeDelivery(deliveryId)
+  * HomeScreen now passes onContinueDelivery callback → navigates to Routes.activeDelivery(deliveryId)
+  * Added composable for Routes.ACTIVE_DELIVERY with deliveryId NavType.StringType argument
+- Added 18 new string resources in values/ + values-ar/ for: active_delivery_title, delivery_status_* (4 statuses), delivery_mark_arrived, delivery_complete, delivery_cancel, delivery_cancel_confirm, delivery_started_at, delivery_arrived_at, delivery_completed_at, delivery_not_found, delivery_finished, active_delivery_banner, active_delivery_continue.
+- Wrote 2 test files (20 test methods):
+  * DeliveryUseCasesTest.kt (7 tests) — startDelivery calls createDelivery, startDelivery returns delivery, transitionDelivery delegates with target, completeDelivery → DELIVERED, cancelDelivery → CANCELLED, transitionDelivery propagates IllegalStateException, startDelivery propagates errors. Uses FakeDeliveryRepo with controllable return values + exception injection.
+  * ActiveDeliveryUiStateTest.kt (13 tests) — canMarkArrived true/false (ON_THE_WAY, not ON_THE_WAY, transitioning), canComplete true/false (ARRIVED, ON_THE_WAY, transitioning), canCancel true (ON_THE_WAY + ARRIVED) / false (DELIVERED + CANCELLED + transitioning), isFinished true (DELIVERED, CANCELLED) / false (ON_THE_WAY, ARRIVED, null delivery), status returns delivery status or null.
+
+Stage Summary:
+- Phase 13 (Delivery Flow) complete.
+- 10 new Kotlin main files + 2 new test files added on top of Phase 12.
+- Total Android: 120 Kotlin main files + 22 test files = 142 Kotlin files.
+- Delivery state machine fully wired:
+  * Customer Details → "Start Delivery" button → StartDeliveryUseCase → Room (ON_THE_WAY) + sync queue → navigate to Active Delivery
+  * Active Delivery screen shows status-driven buttons (mark arrived / complete / cancel)
+  * State machine enforced both in domain (DeliveryStatus.canTransitionTo) and repository (DeliveryRepositoryImpl.transition)
+  * Terminal states (DELIVERED, CANCELLED) auto-pop the screen via isFinished
+  * Home screen shows Active Delivery banner when there's an active delivery
+- Key UX decisions:
+  * ON_THE_WAY shows "I arrived" (not "complete") — driver must confirm arrival before completing
+  * ARRIVED shows "Complete delivery" — final step
+  * Cancel available from any non-terminal state (with confirmation dialog)
+  * Call button available during ON_THE_WAY (driver might need to call customer for directions)
+  * Auto-pop on terminal status — no extra "done" button needed
+  * Banner on Home screen — driver can resume an active delivery from anywhere
+- Navigation graph now has 10 routes: splash, login, home, customers, history, settings, add_customer, customer_details, edit_customer, capture_location, active_delivery.
+- Next: Phase 14 (Routing & ETA) — Mapbox Directions API integration: RoutingEngine interface, MapboxRoutingEngine implementation, CalculateRouteUseCase, display distance + ETA on Active Delivery screen, fallback to straight-line distance on routing failure.

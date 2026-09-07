@@ -15,7 +15,12 @@ import com.waslni.driver.domain.usecase.customer.ObserveCustomersUseCase
 import com.waslni.driver.domain.usecase.customer.SearchCustomersUseCase
 import com.waslni.driver.domain.usecase.customer.UpdateCustomerLocationUseCase
 import com.waslni.driver.domain.usecase.customer.UpdateCustomerUseCase
+import com.waslni.driver.domain.usecase.delivery.CancelDeliveryUseCase
+import com.waslni.driver.domain.usecase.delivery.CompleteDeliveryUseCase
 import com.waslni.driver.domain.usecase.delivery.ObserveActiveDeliveryCustomerIdsUseCase
+import com.waslni.driver.domain.usecase.delivery.ObserveActiveDeliveryUseCase
+import com.waslni.driver.domain.usecase.delivery.StartDeliveryUseCase
+import com.waslni.driver.domain.usecase.delivery.TransitionDeliveryUseCase
 import com.waslni.driver.domain.usecase.location.GetCurrentLocationUseCase
 import com.waslni.driver.domain.usecase.sync.ObservePendingSyncCountUseCase
 import com.waslni.driver.domain.usecase.sync.ScheduleSyncUseCase
@@ -80,6 +85,24 @@ object UseCaseModule {
     @Provides fun provideObserveActiveDeliveryCustomerIdsUseCase(
         repo: DeliveryRepository
     ) = ObserveActiveDeliveryCustomerIdsUseCase(repo)
+
+    // === Delivery flow ===
+    @Provides fun provideStartDeliveryUseCase(repo: DeliveryRepository) =
+        StartDeliveryUseCase(repo)
+
+    @Provides fun provideTransitionDeliveryUseCase(repo: DeliveryRepository) =
+        TransitionDeliveryUseCase(repo)
+
+    @Provides fun provideCompleteDeliveryUseCase(
+        transition: TransitionDeliveryUseCase
+    ) = CompleteDeliveryUseCase(transition)
+
+    @Provides fun provideCancelDeliveryUseCase(
+        transition: TransitionDeliveryUseCase
+    ) = CancelDeliveryUseCase(transition)
+
+    @Provides fun provideObserveActiveDeliveryUseCase(repo: DeliveryRepository) =
+        ObserveActiveDeliveryUseCase(repo)
 
     // === Auth ===
     @Provides fun provideLoginUseCase(repo: AuthRepository) = LoginUseCase(repo)

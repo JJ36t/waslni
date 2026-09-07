@@ -37,7 +37,9 @@ data class HomeUiState(
     val driverLocation: LocationResult? = null,
     val selectedCustomerId: String? = null,
     val isOnline: Boolean = true,
-    val pendingSyncCount: Int = 0
+    val pendingSyncCount: Int = 0,
+    val activeDeliveryId: String? = null,
+    val activeDeliveryCustomerId: String? = null
 ) {
     /**
      * Compute the marker list. Called from the UI; we keep it as a function
@@ -80,6 +82,7 @@ class HomeViewModel @Inject constructor(
     observeCustomers: ObserveCustomersUseCase,
     observeActiveIds: ObserveActiveDeliveryCustomerIdsUseCase,
     observePendingSync: ObservePendingSyncCountUseCase,
+    observeActiveDelivery: com.waslni.driver.domain.usecase.delivery.ObserveActiveDeliveryUseCase,
     private val locationProvider: LocationProvider,
     private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
@@ -88,8 +91,7 @@ class HomeViewModel @Inject constructor(
     private val _selectedCustomerId = MutableStateFlow<String?>(null)
 
     /**
-     * Combined UI state. Whenever any of the source flows emits, the UI gets
-     * a fresh [HomeUiState].
+     * Combined UI state. 7 flows combined into one HomeUiState.
      */
     val state: StateFlow<HomeUiState> = combine(
         observeCustomers(),
@@ -97,7 +99,8 @@ class HomeViewModel @Inject constructor(
         _driverLocation,
         _selectedCustomerId,
         networkMonitor.isOnline,
-        observePendingSync()
+        observePendingSync(),
+        observeActiveDelivery()
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val customers = values[0] as List<Customer>
@@ -107,6 +110,7 @@ class HomeViewModel @Inject constructor(
         val selectedId = values[3] as String?
         val isOnline = values[4] as Boolean
         val pendingCount = values[5] as Int
+        val activeDelivery = values[6] as com.waslni.driver.domain.model.Delivery?
 
         HomeUiState(
             customers = customers,
@@ -114,7 +118,9 @@ class HomeViewModel @Inject constructor(
             driverLocation = driverLoc,
             selectedCustomerId = selectedId,
             isOnline = isOnline,
-            pendingSyncCount = pendingCount
+            pendingSyncCount = pendingCount,
+            activeDeliveryId = activeDelivery?.id,
+            activeDeliveryCustomerId = activeDelivery?.customerId
         )
     }.stateIn(
         scope = viewModelScope,

@@ -96,4 +96,24 @@
     <string name="sync_online">Online</string>
     <string name="sync_offline">Offline</string>
     <string name="sync_in_progress">Syncing…</string>
+
+    <!-- Active Delivery -->
+    <string name="active_delivery_title">Active delivery</string>
+    <string name="delivery_status_on_the_way">On the way</string>
+    <string name="delivery_status_arrived">Arrived</string>
+    <string name="delivery_status_delivered">Delivered</string>
+    <string name="delivery_status_cancelled">Cancelled</string>
+    <string name="delivery_mark_arrived">I arrived at the customer</string>
+    <string name="delivery_complete">Complete delivery</string>
+    <string name="delivery_cancel">Cancel delivery</string>
+    <string name="delivery_cancel_confirm">Cancel this delivery?</string>
+    <string name="delivery_started_at">Started at: %1$s</string>
+    <string name="delivery_arrived_at">Arrived at: %1$s</string>
+    <string name="delivery_completed_at">Completed at: %1$s</string>
+    <string name="delivery_not_found">Delivery not found</string>
+    <string name="delivery_finished">Delivery finished</string>
+
+    <!-- Home active delivery banner -->
+    <string name="active_delivery_banner">You have an active delivery</string>
+    <string name="active_delivery_continue">Continue delivery</string>
 </resources>

@@ -68,6 +68,7 @@ fun CustomerDetailsScreen(
     onBack: () -> Unit,
     onEdit: (String) -> Unit,
     onDeleted: () -> Unit,
+    onStartDelivery: (String) -> Unit,
     viewModel: CustomerDetailsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -87,11 +88,23 @@ fun CustomerDetailsScreen(
         }
     }
 
-    // Show error snackbar
-    LaunchedEffect(state.deleteError) {
+    // Navigate to Active Delivery when started
+    LaunchedEffect(state.startedDeliveryId) {
+        state.startedDeliveryId?.let { id ->
+            onStartDelivery(id)
+            viewModel.clearStartedDeliveryId()
+        }
+    }
+
+    // Show error snackbars
+    LaunchedEffect(state.deleteError, state.startDeliveryError) {
         state.deleteError?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+        state.startDeliveryError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearStartDeliveryError()
         }
     }
 
@@ -193,17 +206,26 @@ fun CustomerDetailsScreen(
 
                         Spacer(Modifier.height(16.dp))
 
-                        // Primary: Start Delivery (Phase 13 wires this)
+                        // Primary: Start Delivery — calls StartDeliveryUseCase
                         Button(
-                            onClick = { /* TODO Phase 13 */ },
+                            onClick = viewModel::startDelivery,
+                            enabled = !state.isStartingDelivery,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp)
                         ) {
-                            Text(
-                                text = stringResource(R.string.customer_start_delivery),
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            if (state.isStartingDelivery) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = stringResource(R.string.customer_start_delivery),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
 
                         Spacer(Modifier.height(8.dp))

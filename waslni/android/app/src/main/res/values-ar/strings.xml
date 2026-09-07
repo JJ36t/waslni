@@ -94,4 +94,24 @@
     <string name="sync_online">متصل</string>
     <string name="sync_offline">غير متصل</string>
     <string name="sync_in_progress">جاري المزامنة…</string>
+
+    <!-- Active Delivery -->
+    <string name="active_delivery_title">التوصيل النشط</string>
+    <string name="delivery_status_on_the_way">في الطريق</string>
+    <string name="delivery_status_arrived">وصلت</string>
+    <string name="delivery_status_delivered">تم التسليم</string>
+    <string name="delivery_status_cancelled">ملغى</string>
+    <string name="delivery_mark_arrived">وصلت إلى الزبون</string>
+    <string name="delivery_complete">تم التسليم</string>
+    <string name="delivery_cancel">إلغاء التوصيل</string>
+    <string name="delivery_cancel_confirm">هل تريد إلغاء هذا التوصيل؟</string>
+    <string name="delivery_started_at">بدأ في: %1$s</string>
+    <string name="delivery_arrived_at">وصل في: %1$s</string>
+    <string name="delivery_completed_at">اكتمل في: %1$s</string>
+    <string name="delivery_not_found">التوصيل غير موجود</string>
+    <string name="delivery_finished">تم إنهاء التوصيل</string>
+
+    <!-- Home active delivery banner -->
+    <string name="active_delivery_banner">لديك توصيل نشط</string>
+    <string name="active_delivery_continue">متابعة التوصيل</string>
 </resources>

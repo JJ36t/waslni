@@ -75,6 +75,7 @@ import dagger.hilt.android.EntryPointAccessors
 fun HomeScreen(
     onAddCustomerClick: () -> Unit,
     onCustomerClick: (String) -> Unit,
+    onContinueDelivery: (String) -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -212,6 +213,20 @@ fun HomeScreen(
                 .align(Alignment.BottomStart)
                 .padding(16.dp)
         )
+
+        // === Active Delivery banner (if there's an active delivery) ===
+        state.activeDeliveryId?.let { deliveryId ->
+            val activeCustomer = state.customers.firstOrNull {
+                it.id == state.activeDeliveryCustomerId
+            }
+            ActiveDeliveryBanner(
+                customerName = activeCustomer?.name,
+                onClick = { onContinueDelivery(deliveryId) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 88.dp, start = 16.dp, end = 16.dp)
+            )
+        }
 
         // === Bottom sheet for selected customer ===
         val selected = viewModel.selectedCustomer()

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.waslni.driver.domain.model.Customer
 import com.waslni.driver.domain.usecase.customer.DeleteCustomerUseCase
 import com.waslni.driver.domain.usecase.customer.GetCustomerUseCase
+import com.waslni.driver.domain.usecase.delivery.StartDeliveryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,14 +27,18 @@ data class CustomerDetailsUiState(
     val isDeleting: Boolean = false,
     val isDeleted: Boolean = false,
     val deleteError: String? = null,
-    val showDeleteConfirm: Boolean = false
+    val showDeleteConfirm: Boolean = false,
+    val isStartingDelivery: Boolean = false,
+    val startedDeliveryId: String? = null,
+    val startDeliveryError: String? = null
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CustomerDetailsViewModel @Inject constructor(
     private val getCustomer: GetCustomerUseCase,
-    private val deleteCustomer: DeleteCustomerUseCase
+    private val deleteCustomer: DeleteCustomerUseCase,
+    private val startDelivery: StartDeliveryUseCase
 ) : ViewModel() {
 
     /** Stream that emits the loaded customer ID (or null until load() is called). */
@@ -45,7 +50,7 @@ class CustomerDetailsViewModel @Inject constructor(
     /**
      * Combined UI state:
      *   - customer flow switches on customerId via flatMapLatest
-     *   - aux state carries delete-related flags
+     *   - aux state carries delete-related + start-delivery flags
      */
     val state: StateFlow<CustomerDetailsUiState> = _customerId
         .flatMapLatest { id ->
@@ -57,7 +62,10 @@ class CustomerDetailsViewModel @Inject constructor(
                     isDeleting = aux.isDeleting,
                     isDeleted = aux.isDeleted,
                     deleteError = aux.deleteError,
-                    showDeleteConfirm = aux.showDeleteConfirm
+                    showDeleteConfirm = aux.showDeleteConfirm,
+                    isStartingDelivery = aux.isStartingDelivery,
+                    startedDeliveryId = aux.startedDeliveryId,
+                    startDeliveryError = aux.startDeliveryError
                 )
             }
         }
@@ -67,9 +75,6 @@ class CustomerDetailsViewModel @Inject constructor(
             initialValue = CustomerDetailsUiState()
         )
 
-    /**
-     * Load the customer by ID. Called once from the screen.
-     */
     fun load(customerId: String) {
         _customerId.value = customerId
     }
@@ -116,6 +121,51 @@ class CustomerDetailsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Start a delivery for this customer.
+     *
+     * On success → `startedDeliveryId` is set; the screen navigates to
+     * the Active Delivery screen with that ID.
+     *
+     * Throws (surfaced as `startDeliveryError`):
+     *   - IllegalStateException if the customer already has an active delivery.
+     *   - IllegalArgumentException if the customer doesn't exist (rare).
+     */
+    fun startDelivery() {
+        val customerId = _customerId.value ?: return
+        viewModelScope.launch {
+            _aux.update {
+                it.copy(isStartingDelivery = true, startDeliveryError = null)
+            }
+
+            val result = runCatching { startDelivery(customerId) }
+
+            result
+                .onSuccess { delivery ->
+                    _aux.update {
+                        it.copy(
+                            isStartingDelivery = false,
+                            startedDeliveryId = delivery.id
+                        )
+                    }
+                }
+                .onFailure { throwable ->
+                    _aux.update {
+                        it.copy(
+                            isStartingDelivery = false,
+                            startDeliveryError = throwable.message
+                                ?: "فشل بدء التوصيل"
+                        )
+                    }
+                }
+        }
+    }
+
+    /** Called by the screen after it has navigated to the Active Delivery screen. */
+    fun clearStartedDeliveryId() {
+        _aux.update { it.copy(startedDeliveryId = null) }
+    }
+
     fun resetDeleted() {
         _aux.update { it.copy(isDeleted = false) }
     }
@@ -124,10 +174,17 @@ class CustomerDetailsViewModel @Inject constructor(
         _aux.update { it.copy(deleteError = null) }
     }
 
+    fun clearStartDeliveryError() {
+        _aux.update { it.copy(startDeliveryError = null) }
+    }
+
     private data class AuxState(
         val isDeleting: Boolean = false,
         val isDeleted: Boolean = false,
         val deleteError: String? = null,
-        val showDeleteConfirm: Boolean = false
+        val showDeleteConfirm: Boolean = false,
+        val isStartingDelivery: Boolean = false,
+        val startedDeliveryId: String? = null,
+        val startDeliveryError: String? = null
     )
 }
