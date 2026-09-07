@@ -137,4 +137,15 @@
     <string name="arrival_distance">المسافة للزبون: %1$s</string>
     <string name="arrival_warming_up">جاري تحديد موقعك…</string>
     <string name="arrival_suggestion">يبدو أنك وصلت. اضغط \"وصلت إلى الزبون\" للتأكيد.</string>
+
+    <!-- History -->
+    <string name="history_tab_today">اليوم</string>
+    <string name="history_tab_week">الأسبوع</string>
+    <string name="history_tab_month">الشهر</string>
+    <string name="history_stats_total">الإجمالي</string>
+    <string name="history_stats_completed">المكتملة</string>
+    <string name="history_stats_cancelled">الملغاة</string>
+    <string name="history_stats_completion_rate">نسبة الإكمال</string>
+    <string name="history_empty">لا توجد توصيلات في هذه الفترة</string>
+    <string name="history_delivery_time">الوقت</string>
 </resources>

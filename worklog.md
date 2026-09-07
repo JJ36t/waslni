@@ -1159,3 +1159,56 @@ Stage Summary:
   * Suggestion, not auto-transition: we suggest "Mark Arrived" but don't auto-transition. The driver must confirm — they might be at the wrong entrance, or the customer might come out to meet them.
   * Works without navigation: arrival detection is independent of the NavigationEngine. It works even if the driver didn't use turn-by-turn navigation (e.g. they walked to the customer or used a different map app).
 - Next: Phase 17 (History) — delivery history screen with Today/Week/Month tabs, stats card, LazyColumn of deliveries grouped by day.
+
+---
+Task ID: phase-17
+Agent: main
+Task: Phase 17 — History: Build the delivery history screen with Today/Week/Month tabs, stats card (total/completed/cancelled/completion rate), LazyColumn of deliveries grouped by day with section headers, and empty state.
+
+Work Log:
+- Created domain/usecase/delivery/HistoryUseCases.kt:
+  * DeliveryStats data class: total, completed, cancelled, active. Computed: completionRate (completed/total, 0 if total=0).
+  * ObserveDeliveriesByDateRangeUseCase — wraps repository.observeByDateRange(startMillis, endMillis).
+  * ObserveDeliveryStatsUseCase — combines 3 flows (DELIVERED count, CANCELLED count, ON_THE_WAY count since startMillis) into a single DeliveryStats emission. Total = completed + cancelled + active.
+  * DateRanges object — helper functions: startOfToday(), startOfWeek(), startOfMonth(), endOfToday(), endOfWeek(), endOfMonth(). Uses java.util.Calendar with proper midnight alignment.
+- Updated di/UseCaseModule.kt — provides ObserveDeliveriesByDateRangeUseCase + ObserveDeliveryStatsUseCase.
+- Created presentation/delivery/HistoryViewModel.kt:
+  * HistoryTab enum: TODAY, WEEK, MONTH.
+  * HistoryUiState: selectedTab, deliveries, stats, isLoading. Computed: groupedByDay (groups deliveries by start-of-day, sorted descending), isEmpty.
+  * Uses flatMapLatest on _selectedTab — switches the data source when the tab changes, cancelling the previous subscription.
+  * combine(deliveries flow, stats flow) → single HistoryUiState emission.
+  * selectTab(tab) updates _selectedTab.
+  * startOfDay(epochMillis) companion helper — used by both the ViewModel and the test.
+- Rewrote presentation/delivery/HistoryScreen.kt (replaced placeholder):
+  * TabRow with 3 tabs (Today / Week / Month) — RTL-aware.
+  * StatsCard: 4 stat items in a row (Total / Completed / Cancelled / Completion Rate %) on primaryContainer background.
+  * StatItem: large number (headlineSmall, bold) + small label below.
+  * DayHeader: "اليوم" / "أمس" / formatted date "yyyy/MM/dd (EEEE)" in Arabic.
+  * DeliveryRow: status icon (green check for DELIVERED, red X for CANCELLED, orange truck for ON_THE_WAY, blue truck for ARRIVED) + status label + time + delivery ID (last 8 chars).
+  * EmptyHistoryState: truck icon + "لا توجد توصيلات في هذه الفترة".
+  * Loading state: centered CircularProgressIndicator.
+  * LazyColumn with item keys (header-{dayStart} + {delivery.id}) for proper diffing.
+- Added 10 new string resources (history_tab_today/week/month, history_stats_total/completed/cancelled/completion_rate, history_empty, history_delivery_time) in values/ + values-ar/.
+- Wrote 1 test file (12 test methods in 3 test classes):
+  * HistoryUiStateTest (5 tests) — isEmpty true/false (no deliveries / has deliveries / loading), groupedByDay groups by start-of-day, groupedByDay sorted descending, groupedByDay empty for empty deliveries.
+  * DeliveryStatsTest (4 tests) — completionRate 0 when total=0, completionRate = completed/total, completionRate 1 when all completed, completionRate handles active in total.
+  * StartOfDayTest (3 tests) — startOfDay returns midnight of same day, startOfDay same for any time within same day, verifies year/month/day/hour/minute/second fields.
+
+Stage Summary:
+- Phase 17 (History) complete.
+- 3 new Kotlin main files + 1 new test file added on top of Phase 16.
+- Total Android: 137 Kotlin main files + 27 test files = 164 Kotlin files.
+- History screen architecture:
+  * domain/usecase/delivery/HistoryUseCases — DeliveryStats + 2 use cases + DateRanges helper
+  * presentation/delivery/HistoryViewModel — tab switching via flatMapLatest, reactive stats + deliveries
+  * presentation/delivery/HistoryScreen — TabRow + StatsCard + LazyColumn with day grouping
+- Key design decisions:
+  * Tab switching via flatMapLatest: when the user switches from Today to Week, the previous Today flow is cancelled immediately. No stale subscriptions, no wasted DB queries.
+  * Stats combine 3 flows into one: the UI gets a single HistoryUiState emission with both the delivery list AND the stats, so they're always in sync.
+  * Day grouping: deliveries are grouped by start-of-day (midnight), not by creation hour. "اليوم" and "أمس" labels are computed relative to the current day, not hardcoded.
+  * Delivery ID shown as last 8 chars: gives the driver a short reference without exposing the full UUID.
+  * Status icons color-coded: green (DELIVERED), red (CANCELLED), orange (ON_THE_WAY), blue (ARRIVED) — matches the Active Delivery screen's StatusBanner colors.
+  * Time shown is completedAt (or cancelledAt or createdAt as fallback) — the most relevant timestamp for each status.
+  * Empty state is informative: "لا توجد توصيلات في هذه الفترة" tells the user the period is correct, just no data.
+  * Loading state: shows spinner only on first load; subsequent tab switches use the WhileSubscribed(5_000) strategy so the UI doesn't flash empty.
+- Next: Phase 18 (Notifications) — local notifications for arrival detection + navigation alerts + delivery status changes. NotificationHelper with channels, permission handling for API 33+.

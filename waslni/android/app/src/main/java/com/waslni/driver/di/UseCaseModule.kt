@@ -104,6 +104,13 @@ object UseCaseModule {
     @Provides fun provideObserveActiveDeliveryUseCase(repo: DeliveryRepository) =
         ObserveActiveDeliveryUseCase(repo)
 
+    // === History ===
+    @Provides fun provideObserveDeliveriesByDateRange(repo: DeliveryRepository) =
+        com.waslni.driver.domain.usecase.delivery.ObserveDeliveriesByDateRangeUseCase(repo)
+
+    @Provides fun provideObserveDeliveryStats(repo: DeliveryRepository) =
+        com.waslni.driver.domain.usecase.delivery.ObserveDeliveryStatsUseCase(repo)
+
     // === Routing ===
     @Provides fun provideCalculateRouteUseCase(
         engine: com.waslni.driver.core.maps.RoutingEngine

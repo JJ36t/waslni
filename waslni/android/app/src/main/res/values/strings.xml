@@ -139,4 +139,15 @@
     <string name="arrival_distance">Distance to customer: %1$s</string>
     <string name="arrival_warming_up">Determining your location…</string>
     <string name="arrival_suggestion">It looks like you\'ve arrived. Tap \"I arrived\" to confirm.</string>
+
+    <!-- History -->
+    <string name="history_tab_today">Today</string>
+    <string name="history_tab_week">Week</string>
+    <string name="history_tab_month">Month</string>
+    <string name="history_stats_total">Total</string>
+    <string name="history_stats_completed">Completed</string>
+    <string name="history_stats_cancelled">Cancelled</string>
+    <string name="history_stats_completion_rate">Completion rate</string>
+    <string name="history_empty">No deliveries in this period</string>
+    <string name="history_delivery_time">Time</string>
 </resources>
