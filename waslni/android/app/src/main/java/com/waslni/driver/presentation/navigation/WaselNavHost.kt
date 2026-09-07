@@ -123,6 +123,23 @@ fun WaselNavHost() {
                     onCancel = { navController.popBackStack() }
                 )
             }
+
+            // === Location flow (Phase 4 — standalone capture screen) ===
+            composable(Routes.CAPTURE_LOCATION) {
+                com.waslni.driver.presentation.location.LocationPermissionGate(
+                    onPermissionGranted = { /* proceed */ },
+                    onPermissionDenied = { navController.popBackStack() }
+                ) {
+                    com.waslni.driver.presentation.location.CaptureLocationScreen(
+                        onBack = { navController.popBackStack() },
+                        onConfirm = { _ ->
+                            // Phase 4: just pop back — Phase 6 will pass the
+                            // captured location back to the Add Customer form.
+                            navController.popBackStack()
+                        }
+                    )
+                }
+            }
         }
     }
 }

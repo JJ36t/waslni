@@ -39,4 +39,30 @@
     <string name="retry">Retry</string>
     <string name="loading">Loading…</string>
     <string name="error_generic">An unexpected error occurred</string>
+
+    <!-- Location -->
+    <string name="location_rationale_title">Location permission needed</string>
+    <string name="location_rationale_message">We need your location to determine your current position and calculate the route to your customer. We never share your location with third parties.</string>
+    <string name="location_rationale_confirm">Allow</string>
+    <string name="location_permission_denied_title">Location permission denied</string>
+    <string name="location_permission_denied_message">The app cannot function without location permission. You can grant it from Settings.</string>
+    <string name="location_permission_open_settings">Open Settings</string>
+    <string name="location_permission_dismiss">Dismiss</string>
+    <string name="gps_disabled_title">GPS is disabled</string>
+    <string name="gps_disabled_message">Please enable location services in your device settings so we can determine your position.</string>
+    <string name="gps_disabled_open_settings">Open location settings</string>
+    <string name="location_timeout_title">Couldn\'t determine location</string>
+    <string name="location_timeout_message">Getting a location fix took too long. Make sure you\'re in an open area and try again.</string>
+    <string name="location_unknown_error">Couldn\'t get your location. Please try again.</string>
+
+    <!-- Location capture -->
+    <string name="capture_location">Capture location</string>
+    <string name="capturing_location">Getting your location…</string>
+    <string name="location_accuracy_label">Accuracy</string>
+    <string name="location_accuracy_excellent">Excellent</string>
+    <string name="location_accuracy_good">Good</string>
+    <string name="location_accuracy_poor">Poor</string>
+    <string name="location_accuracy_poor_message">Location accuracy is low (%1$.1fm). Wait a moment and try again.</string>
+    <string name="location_capture_again">Re-capture</string>
+    <string name="location_confirm">Confirm location</string>
 </resources>

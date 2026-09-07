@@ -131,3 +131,50 @@ Stage Summary:
   * COMPLETE_DELIVERY auto-generates an idempotencyKey.
   * State machine is enforced both in domain (DeliveryStatus.canTransitionTo) and repository (DeliveryRepositoryImpl.transition).
 - Next: Phase 4 (GPS & Location) — build LocationProvider interface + FusedLocationProvider implementation + permission handling + accuracy threshold logic + GetCurrentLocationUseCase.
+
+---
+Task ID: phase-4
+Agent: main
+Task: Phase 4 — GPS & Location: Build the location subsystem with LocationProvider abstraction, FusedLocationProvider implementation, permission handling, accuracy threshold logic, CaptureLocationScreen, and unit tests.
+
+Work Log:
+- Created core/location/ package.
+- Wrote LocationException.kt — sealed class hierarchy: LocationPermissionException (with permanentlyDenied flag), GpsDisabledException (with isResolvable), LocationTimeoutException (with timeoutMillis), LocationUnavailableException (fallback).
+- Wrote LocationProvider.kt — interface with getCurrentLocation() (single fix with timeout/threshold/maxAge), observeLocationUpdates() (Flow for navigation), hasLocationPermission(), isLocationEnabled(). Constants: DEFAULT_TIMEOUT_MILLIS=10s, DEFAULT_ACCURACY_THRESHOLD=10m, DEFAULT_MAX_AGE_MILLIS=30s.
+- Wrote FusedLocationProvider.kt — production implementation using Play Services FusedLocationProviderClient. Strategy: try last known location first (cheap) → request fresh high-accuracy fix if stale/poor → use withTimeoutOrNull for deadline. Uses LocationRequest.Builder with PRIORITY_HIGH_ACCURACY, setWaitForAccurateLocation(true). Converts android.location.Location to domain LocationResult.
+- Wrote LocationModule.kt — Hilt module providing FusedLocationProvider (singleton) + GpsSettingsHelper. GpsSettingsHelper has openLocationSettings() (ACTION_LOCATION_SOURCE_SETTINGS) and openAppDetailsSettings() (ACTION_APPLICATION_DETAILS_SETTINGS for permanently denied case).
+- Wrote domain/usecase/location/GetCurrentLocationUseCase.kt — thin wrapper that delegates to LocationProvider with same parameters.
+- Updated di/UseCaseModule.kt to provide GetCurrentLocationUseCase.
+- Wrote core/ui/location/PermissionState.kt — enum (UNKNOWN, GRANTED, DENIED, PERMANENTLY_DENIED) + rememberPermissionState() composable using ActivityResultContracts.RequestMultiplePermissions. Heuristic: denialCount >= 2 → PERMANENTLY_DENIED (system won't show dialog anymore).
+- Wrote core/ui/components/ConfirmationDialog.kt — generic AlertDialog wrapper with title/message/confirm/dismiss.
+- Wrote core/ui/components/AccuracyIndicator.kt — visual indicator with 3 tiers (EXCELLENT ≤5m, GOOD ≤threshold, POOR >threshold). Pure computeAccuracyTier() function extracted for testability. Green check icon for acceptable, orange warning for poor.
+- Wrote presentation/location/LocationPermissionGate.kt — composable that wraps a screen requiring location permission. Shows rationale dialog first, then system permission dialog, then falls back to "open Settings" dialog for permanently denied.
+- Wrote presentation/location/CaptureLocationViewModel.kt — HiltViewModel with sealed CaptureLocationUiState (Idle, Loading, Success, PoorAccuracy, Error). captureLocation() runs the use case, checks accuracy against threshold, maps exceptions to LocationErrorType enum.
+- Wrote presentation/location/CaptureLocationScreen.kt — full screen UI with map placeholder, location coordinates display, AccuracyIndicator, capture button, retry button, error messages. Uses StateFlow from ViewModel via collectAsStateWithLifecycle.
+- Updated presentation/navigation/Routes.kt — added CAPTURE_LOCATION route.
+- Updated presentation/navigation/WaselNavHost.kt — added composable for CaptureLocationScreen wrapped in LocationPermissionGate.
+- Added 23 new string resources in values/strings.xml (English) and values-ar/strings.xml (Arabic) for: location rationale, permission denied, GPS disabled, timeout, capture flow, accuracy tiers (excellent/good/poor).
+- Wrote 4 test files (35 test methods):
+  * FakeLocationProvider.kt — test double with permissionGranted, locationEnabled, locationToReturn, exceptionToThrow, updatesToEmit knobs.
+  * GetCurrentLocationUseCaseTest.kt — 9 tests: returns location, default params propagation, custom params propagation, exception pass-through (permission/gps/timeout/runtime), call count.
+  * CaptureLocationViewModelTest.kt — 14 tests using Turbine: Idle initial state, Success on acceptable accuracy, PoorAccuracy on poor accuracy, threshold boundary, exception mapping (permission/gps/timeout/unknown), reset(), multiple sequential captures.
+  * AccuracyIndicatorTest.kt — 9 tests: tier boundaries (0/5/5.1/10/10.1/70), threshold adjustment effects, EXCELLENT independence from threshold.
+
+Stage Summary:
+- Phase 4 (GPS & Location) complete.
+- 12 new Kotlin main files + 4 new test files added on top of Phase 3.
+- Total project: 63 Kotlin main files + 8 test files = 71 Kotlin files.
+- Location subsystem architecture:
+  * core/location/ — LocationProvider interface + FusedLocationProvider impl + LocationException hierarchy + GpsSettingsHelper + Hilt LocationModule
+  * core/ui/location/ — PermissionState enum + rememberPermissionState composable
+  * core/ui/components/ — AccuracyIndicator (3-tier) + ConfirmationDialog
+  * presentation/location/ — LocationPermissionGate, CaptureLocationScreen, CaptureLocationViewModel
+  * domain/usecase/location/ — GetCurrentLocationUseCase
+- Key design decisions:
+  * Last-known-location-first strategy: try cheap instant fix before requesting fresh one (saves battery + time).
+  * setWaitForAccurateLocation(true) on LocationRequest.Builder — Play Services will internally wait for a high-accuracy fix instead of returning the first noisy one.
+  * Accuracy threshold is parameter-driven (default 10m, configurable in Settings later) — use case and UI both honor the same value.
+  * Exception types map cleanly to UI states: each LocationException subclass has a corresponding LocationErrorType enum value.
+  * Permission state has 4 distinct states (UNKNOWN, GRANTED, DENIED, PERMANENTLY_DENIED) — UI shows the right dialog for each.
+  * FakeLocationProvider exposes knobs for every behavior the tests need to drive (no Robolectric required for use case/VM tests).
+- Next: Phase 5 (Maps) — Mapbox integration: MapProvider interface, MapboxMapProvider impl, HomeScreen with full-screen map, driver marker, customer markers from Room, marker interaction.

@@ -37,4 +37,30 @@
     <string name="retry">إعادة المحاولة</string>
     <string name="loading">جاري التحميل…</string>
     <string name="error_generic">حدث خطأ غير متوقع</string>
+
+    <!-- Location -->
+    <string name="location_rationale_title">نحتاج صلاحية الموقع</string>
+    <string name="location_rationale_message">يحتاج التطبيق إلى موقعك لتحديد موقعك الحالي وحساب الطريق إلى الزبون. لا نشارك موقعك مع أي طرف ثالث.</string>
+    <string name="location_rationale_confirm">سماح</string>
+    <string name="location_permission_denied_title">تم رفض صلاحية الموقع</string>
+    <string name="location_permission_denied_message">لا يمكن استخدام التطبيق بدون صلاحية الموقع. يمكنك منحها من الإعدادات.</string>
+    <string name="location_permission_open_settings">فتح الإعدادات</string>
+    <string name="location_permission_dismiss">إغلاق</string>
+    <string name="gps_disabled_title">الـGPS معطل</string>
+    <string name="gps_disabled_message">يرجى تفعيل خدمات الموقع من إعدادات الجهاز حتى نتمكن من تحديد موقعك.</string>
+    <string name="gps_disabled_open_settings">فتح إعدادات الموقع</string>
+    <string name="location_timeout_title">تعذر تحديد الموقع</string>
+    <string name="location_timeout_message">استغرق الحصول على الموقع وقتًا طويلًا. تأكد من أنك في مكان مفتوح وحاول مرة أخرى.</string>
+    <string name="location_unknown_error">تعذر الحصول على الموقع. حاول مرة أخرى.</string>
+
+    <!-- Location capture -->
+    <string name="capture_location">التقاط الموقع</string>
+    <string name="capturing_location">جاري تحديد موقعك…</string>
+    <string name="location_accuracy_label">الدقة</string>
+    <string name="location_accuracy_excellent">ممتازة</string>
+    <string name="location_accuracy_good">جيدة</string>
+    <string name="location_accuracy_poor">ضعيفة</string>
+    <string name="location_accuracy_poor_message">دقة الموقع منخفضة (%1$.1fm). انتظر لحظة وحاول مرة أخرى.</string>
+    <string name="location_capture_again">إعادة الالتقاط</string>
+    <string name="location_confirm">تأكيد الموقع</string>
 </resources>

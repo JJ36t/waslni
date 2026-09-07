@@ -42,6 +42,9 @@ object Routes {
     const val ACTIVE_DELIVERY = "delivery/active/{deliveryId}"
     const val NAVIGATION = "navigation/{deliveryId}"
 
+    // === Location flow ===
+    const val CAPTURE_LOCATION = "location/capture"
+
     /**
      * Helper to build a route with arguments.
      * Usage: Routes.customerDetails("uuid-123")
