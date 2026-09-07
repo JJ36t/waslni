@@ -72,4 +72,20 @@
     <string name="customer_call">اتصال</string>
     <string name="customer_start_delivery">بدء التوصيل</string>
     <string name="customer_view_details">التفاصيل</string>
+
+    <!-- Customer Details -->
+    <string name="customer_details_title">تفاصيل الزبون</string>
+    <string name="customer_gps_accuracy">دقة GPS</string>
+    <string name="customer_last_updated">آخر تحديث</string>
+    <string name="customer_edit">تعديل</string>
+    <string name="customer_delete">حذف</string>
+    <string name="customer_delete_confirm_title">حذف الزبون</string>
+    <string name="customer_delete_confirm_message">هل تريد حذف \"%1$s\"؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="customer_delete_button">حذف</string>
+    <string name="customer_loading">جاري التحميل…</string>
+    <string name="customer_not_found">الزبون غير موجود</string>
+
+    <!-- Edit Customer -->
+    <string name="edit_customer_title">تعديل الزبون</string>
+    <string name="update_location">تحديث الموقع</string>
 </resources>

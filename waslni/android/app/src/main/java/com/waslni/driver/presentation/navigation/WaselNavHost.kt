@@ -21,8 +21,10 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.waslni.driver.presentation.auth.login.LoginScreen
 import com.waslni.driver.presentation.auth.splash.SplashScreen
+import com.waslni.driver.presentation.customers.CustomerDetailsScreen
 import com.waslni.driver.presentation.customers.CustomerListScreen
 import com.waslni.driver.presentation.customers.AddCustomerScreen
+import com.waslni.driver.presentation.customers.EditCustomerScreen
 import com.waslni.driver.presentation.delivery.HistoryScreen
 import com.waslni.driver.presentation.home.HomeScreen
 import com.waslni.driver.presentation.settings.SettingsScreen
@@ -121,6 +123,31 @@ fun WaselNavHost() {
                 AddCustomerScreen(
                     onSaved = { navController.popBackStack() },
                     onCancel = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                route = Routes.CUSTOMER_DETAILS,
+                arguments = listOf(navArgument("customerId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val customerId = backStackEntry.arguments?.getString("customerId") ?: return@composable
+                CustomerDetailsScreen(
+                    customerId = customerId,
+                    onBack = { navController.popBackStack() },
+                    onEdit = { id -> navController.navigate(Routes.editCustomer(id)) },
+                    onDeleted = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                route = Routes.EDIT_CUSTOMER,
+                arguments = listOf(navArgument("customerId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val customerId = backStackEntry.arguments?.getString("customerId") ?: return@composable
+                EditCustomerScreen(
+                    customerId = customerId,
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() }
                 )
             }
 

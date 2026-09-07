@@ -74,4 +74,20 @@
     <string name="customer_call">Call</string>
     <string name="customer_start_delivery">Start delivery</string>
     <string name="customer_view_details">Details</string>
+
+    <!-- Customer Details -->
+    <string name="customer_details_title">Customer details</string>
+    <string name="customer_gps_accuracy">GPS accuracy</string>
+    <string name="customer_last_updated">Last updated</string>
+    <string name="customer_edit">Edit</string>
+    <string name="customer_delete">Delete</string>
+    <string name="customer_delete_confirm_title">Delete customer</string>
+    <string name="customer_delete_confirm_message">Delete \"%1$s\"? This action cannot be undone.</string>
+    <string name="customer_delete_button">Delete</string>
+    <string name="customer_loading">Loading…</string>
+    <string name="customer_not_found">Customer not found</string>
+
+    <!-- Edit Customer -->
+    <string name="edit_customer_title">Edit customer</string>
+    <string name="update_location">Update location</string>
 </resources>

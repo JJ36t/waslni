@@ -246,3 +246,93 @@ Stage Summary:
   * Composables acquire MapProvider via Hilt EntryPoint (composables can't @Inject).
   * Low-frequency driver updates (15s) on home screen for battery. Higher frequency (3s) reserved for navigation in Phase 15.
 - Next: Phase 6 (Customer Management) — full CRUD: AddCustomerViewModel wired to AddCustomerUseCase, real customer list with search, edit/delete customer screens, customer details screen, duplicate phone detection, location capture integrated into add flow.
+
+---
+Task ID: phase-6
+Agent: main
+Task: Phase 6 — Customer Management: Wire ViewModels to real UseCases for full CRUD (list with search, add with GPS capture + duplicate detection, details with delete confirmation, edit with location update).
+
+Work Log:
+- Wrote presentation/customers/CustomerListViewModel.kt:
+  * HiltViewModel injecting ObserveCustomersUseCase + SearchCustomersUseCase
+  * Uses flatMapLatest on _query flow: blank → observeAll, non-blank → search
+  * CustomerListUiState with computed isEmpty / isSearching / isNoResults
+- Rewrote presentation/customers/CustomerListScreen.kt:
+  * Real OutlinedTextField bound to viewModel::onQueryChange
+  * Clear button (X icon) when query non-empty
+  * LazyColumn with CustomerRow (avatar circle with first letter + name + phone + coordinates)
+  * Empty state when no customers, no-results state when search returns empty
+  * FAB to add customer
+- Wrote presentation/customers/AddCustomerViewModel.kt:
+  * HiltViewModel injecting AddCustomerUseCase + GetCurrentLocationUseCase + CheckDuplicatePhoneUseCase
+  * State machine: Idle → CapturingLocation → Idle (with location) → Saving → Saved
+  * canSave computed property: name 2-120, phone 7-30, location != null, not saving/capturing
+  * Duplicate phone check before save (returns existing customer's name in error)
+  * validateName() + validatePhone() + Throwable.toUserMessage() extracted as internal helpers for testability
+- Rewrote presentation/customers/AddCustomerScreen.kt:
+  * OutlinedTextField for name + phone with supportingText errors
+  * LocationPermissionGate wrapping the location section
+  * Location section: capture button / captured display + AccuracyIndicator / re-capture button
+  * SnackbarHost for locationError + errorMessage
+  * LaunchedEffect on isSaved → onSaved() callback
+- Wrote presentation/customers/CustomerDetailsViewModel.kt:
+  * HiltViewModel injecting GetCustomerUseCase + DeleteCustomerUseCase
+  * _customerId flow + flatMapLatest on customer flow
+  * AuxState (isDeleting, isDeleted, deleteError, showDeleteConfirm) combined with customer flow
+  * delete() runs DeleteCustomerUseCase, sets isDeleted on success or deleteError on failure
+- Wrote presentation/customers/CustomerDetailsScreen.kt:
+  * TopAppBar with back + edit action
+  * Customer info: name (headline), phone (with dial intent), coordinates, GPS accuracy (AccuracyIndicator), last updated
+  * Primary: Start Delivery button (Phase 13 wires)
+  * Secondary: Call button (Intent.ACTION_DIAL)
+  * Tertiary row: Edit + Delete buttons
+  * ConfirmationDialog for delete with customer name in message
+  * Loading state (CircularProgressIndicator) while customer loads
+  * SnackbarHost for deleteError
+- Wrote presentation/customers/EditCustomerViewModel.kt:
+  * HiltViewModel injecting GetCustomerUseCase + UpdateCustomerUseCase + UpdateCustomerLocationUseCase + GetCurrentLocationUseCase
+  * FormState tracks name/phone/location/error flags separately from originalCustomer
+  * First load pre-fills form from customer flow; subsequent edits preserve user input
+  * hasUnsavedChanges computed property
+  * save() calls UpdateCustomerUseCase (if name/phone changed) then UpdateCustomerLocationUseCase (if location re-captured)
+- Wrote presentation/customers/EditCustomerScreen.kt:
+  * Same form layout as Add (name + phone + location)
+  * Location section shows existing customer location with "Update location" button
+  * After re-capture: shows new location with AccuracyIndicator + "Re-capture" button
+  * Loading state while customer loads
+- Updated presentation/navigation/WaselNavHost.kt:
+  * Added composable for Routes.CUSTOMER_DETAILS with customerId NavType.StringType argument
+  * Added composable for Routes.EDIT_CUSTOMER with customerId argument
+  * Wired onEdit and onDeleted callbacks
+- Added 13 new string resources in values/ and values-ar/ for: customer details title, GPS accuracy, last updated, edit/delete actions, delete confirm title + message, customer loading, customer not found, edit customer title, update location.
+- Wrote 3 test files (40 test methods):
+  * ValidationHelpersTest.kt — 21 tests covering validateName (4 cases), validatePhone (5 cases), Throwable.toUserMessage (6 cases for each LocationException subclass), AddCustomerUiState.canSave (6 cases)
+  * CustomerListUiStateTest.kt — 9 tests covering isEmpty, isSearching, isNoResults, total
+  * AddCustomerViewModelTest.kt — 10 tests using FakeCustomerRepository + FakeLocationProvider:
+    - Initial state
+    - onNameChange/onPhoneChange
+    - captureLocation success + timeout
+    - canSave becomes true when valid
+    - save calls repository and sets isSaved
+    - save with duplicate phone sets phoneError
+    - save with short name/phone sets validation errors
+    - resetSaved clears flag
+  * FakeCustomerRepository — minimal fake tracking addedCustomers + existingByPhone for duplicate testing.
+
+Stage Summary:
+- Phase 6 (Customer Management) complete.
+- 8 new Kotlin main files + 3 new test files added on top of Phase 5.
+- Total project: 75 Kotlin main files + 14 test files = 89 Kotlin files.
+- Customer CRUD fully wired:
+  * List with reactive search (flatMapLatest on query flow)
+  * Add with GPS capture + duplicate phone detection + form validation
+  * Details with delete confirmation + Call action
+  * Edit with name/phone update + location re-capture
+- Navigation graph now has 9 routes: splash, login, home, customers, history, settings, add_customer, customer_details, edit_customer, capture_location.
+- Validation helpers (validateName, validatePhone, toUserMessage) extracted as internal functions for direct unit testing without ViewModel instantiation.
+- Key UX decisions:
+  * Avatar circle uses first letter of name — gives visual variety in the list without icon assets
+  * Delete uses a confirmation dialog (not a swipe action) because customer deletion is destructive and blocked by active deliveries
+  * Edit screen pre-fills form from customer flow and re-emits when Room updates (form stays in sync if customer changes from another flow)
+  * Location re-capture is a separate button in Edit (not automatic) because we want explicit user intent for GPS updates
+- Next: Phase 7 (Backend Foundation) — FastAPI project setup, PostgreSQL schema migrations, docker-compose, Alembic, seed script, /health endpoint.
