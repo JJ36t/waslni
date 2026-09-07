@@ -414,3 +414,74 @@ Stage Summary:
   * Idempotency keys expire after 24h via server_default.
   * Exception handlers convert everything (including unhandled exceptions) to the unified error response — never leak internals.
 - Next: Phase 8 (Backend Auth) — /auth router (login, refresh, logout, me), AuthService, get_current_user dependency, audit logging, rate limiting on /auth/login.
+
+---
+Task ID: phase-8
+Agent: main
+Task: Phase 8 — Backend Auth: Build /auth router (login, refresh, logout, me) with AuthService, repositories, get_current_user dependency, audit logging, rate limiting, and comprehensive tests.
+
+Work Log:
+- Wrote app/schemas/auth.py:
+  * LoginRequest (username min 3 max 50, password min 1 max 128, username trimmed)
+  * RefreshRequest, LogoutRequest
+  * UserResponse (from_attributes=True, never includes password_hash)
+  * TokenResponse (access_token, refresh_token, token_type="bearer", expires_in, user)
+- Wrote app/schemas/common.py — PaginatedResponse[T], PaginationMeta, ErrorResponse, ErrorBody for reuse across future endpoints.
+- Wrote app/repositories/user_repo.py — get_by_id, get_by_username, update_last_login.
+- Wrote app/repositories/refresh_token_repo.py:
+  * _hash_token() — SHA-256 of refresh token (never stored plaintext).
+  * create() — stores hash + expiry + device_info.
+  * get_by_token() — lookup by hash.
+  * revoke() — single token, revoke_all_for_user() — for logout-all + reuse detection.
+  * delete_expired() — periodic cleanup.
+  * default_expiry() — settings.REFRESH_TOKEN_EXPIRE_DAYS from now.
+- Wrote app/repositories/audit_log_repo.py — record() inserts AuditLog with action, user_id, entity info, metadata (JSONB), ip_address. Doc clearly states metadata must NEVER contain passwords/tokens/phones.
+- Updated app/core/exceptions.py — added InvalidCredentialsError (401) and AccountDisabledError (403).
+- Wrote app/services/auth_service.py:
+  * login(username, password, ip) — always runs password verify even if user is None (timing-safe against username enumeration). Raises InvalidCredentialsError for unknown user OR wrong password (same error). Raises AccountDisabledError for inactive users. Issues access + refresh token, persists refresh hash, updates last_login_at, records LOGIN_SUCCESS audit log.
+  * refresh(refresh_token, ip) — decodes JWT, looks up stored hash, checks revoked flag. On revoked-token reuse: revokes ALL of the user's tokens (suspected theft) and records TOKEN_REVOKED audit log. Rotation strategy: old refresh token revoked, new pair issued. Records TOKEN_REFRESHED audit log.
+  * logout(refresh_token, ip) — idempotent. If token exists and not revoked, revokes it and records LOGOUT audit log. If unknown or already revoked, returns silently (no information leak).
+- Wrote app/api/deps.py:
+  * DbSession = Annotated[AsyncSession, Depends(get_db)]
+  * get_auth_service(session) — constructs AuthService with all 3 repositories bound to the session
+  * AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+  * get_current_user(session, authorization) — extracts Bearer token, decodes JWT, looks up User. Raises typed errors: UNAUTHORIZED (no header), TOKEN_INVALID (bad signature/wrong type), TOKEN_EXPIRED. Returns User row.
+  * CurrentUser = Annotated[User, Depends(get_current_user)]
+  * get_current_active_user(user) — additionally requires is_active=True. Raises ACCOUNT_DISABLED.
+  * ActiveUser = Annotated[User, Depends(get_current_active_user)]
+  * get_client_ip(request) — honors X-Forwarded-For for proxies.
+- Wrote app/api/auth.py:
+  * POST /auth/login — calls AuthService.login, rate-limited via _check_login_rate_limit (5/min/IP via X-Forwarded-For, sliding window in-memory).
+  * POST /auth/refresh — calls AuthService.refresh.
+  * POST /auth/logout — calls AuthService.logout, returns 204 (idempotent).
+  * GET /auth/me — ActiveUser dependency, returns UserResponse.
+- Updated app/api/v1.py — include auth_router.
+- Wrote tests/test_auth.py (18 test methods in 5 test classes):
+  * TestLogin (6 tests) — success, wrong password, unknown user (same error as wrong password), disabled account, validation error, audit log creation.
+  * TestRefresh (4 tests) — success, rotation (old token revoked), tampered token, access token rejected by refresh endpoint.
+  * TestLogout (3 tests) — success (token can no longer refresh), unknown token idempotent, double logout idempotent.
+  * TestMe (5 tests) — success, no token → 401, garbage token → 401, refresh token rejected → 401, disabled user → 403.
+  * TestRateLimit (1 test) — 6th attempt from same IP returns 429 RATE_LIMIT_EXCEEDED.
+
+Stage Summary:
+- Phase 8 (Backend Auth) complete.
+- 11 new Python files added on top of Phase 7's 31.
+- Total backend: 40 Python files.
+- Auth system fully functional:
+  * Login with username + password → access (15min) + refresh (30d) tokens
+  * Refresh with rotation (old token revoked, new pair issued)
+  * Reuse detection (revoked token use → revoke ALL user tokens)
+  * Logout idempotent (safe to retry)
+  * /auth/me with active user check
+  * Rate limiting (5/min/IP via X-Forwarded-For)
+  * Audit logging for LOGIN_SUCCESS, LOGIN_FAILURE, LOGOUT, TOKEN_REFRESHED, TOKEN_REVOKED
+- Key security decisions:
+  * Same error code for "user not found" and "wrong password" — no username enumeration via timing or distinct codes.
+  * Always run verify_password (even for None user) to equalize timing.
+  * Refresh tokens stored as SHA-256 hashes — DB leak doesn't expose valid tokens.
+  * Refresh rotation: old token revoked on every refresh, limits blast radius of stolen tokens.
+  * Revoked-token reuse triggers logout-all (defense against token theft).
+  * Logout is idempotent — no information about whether token existed.
+  * Refresh tokens rejected by /auth/me (and access tokens rejected by /auth/refresh) — strict type checking.
+  * ActiveUser dependency (separate from CurrentUser) for endpoints that perform actions.
+- Next: Phase 9 (Backend Customers & Deliveries) — CRUD endpoints with authorization (driver A cannot access driver B's data), pagination, search, delivery state machine validation.

@@ -1,11 +1,14 @@
-"""Empty router placeholder for the v1 API.
+"""V1 API router — aggregates all v1 sub-routers.
 
-Phase 8 will add the /auth router here. Phase 9 will add /customers and
-/deliveries. Phase 10 will add /sync.
+Phase 8 adds /auth. Phase 9 will add /customers and /deliveries.
+Phase 10 will add /sync.
 """
 from fastapi import APIRouter
 
+from app.api.auth import router as auth_router
+
 router = APIRouter()
+router.include_router(auth_router)
 
 
 @router.get("/health", tags=["meta"])

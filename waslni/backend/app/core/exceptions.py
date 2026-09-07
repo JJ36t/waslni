@@ -59,10 +59,20 @@ class TokenExpiredError(AppError):
     default_message = "Token has expired"
 
 
+class InvalidCredentialsError(AppError):
+    status_code = 401
+    default_message = "Invalid credentials"
+
+
 # === 403 Forbidden ===
 class ForbiddenError(AppError):
     status_code = 403
     default_message = "Forbidden"
+
+
+class AccountDisabledError(AppError):
+    status_code = 403
+    default_message = "Account has been disabled"
 
 
 # === 404 Not Found ===
