@@ -1003,3 +1003,91 @@ Stage Summary:
   * Mapbox profile: driving-traffic (traffic-aware routing) for accurate ETA in urban Iraq.
   * Steps + voice + banner instructions enabled — needed for Phase 15 (Navigation).
 - Next: Phase 15 (Navigation & Alerts) — Mapbox Navigation SDK integration: NavigationEngine interface, MapboxNavigationEngine implementation, turn-by-turn navigation, voice alerts, re-routing on deviation.
+
+---
+Task ID: phase-15
+Agent: main
+Task: Phase 15 — Navigation & Alerts: Integrate Mapbox Navigation SDK with NavigationEngine abstraction, turn-by-turn guidance, voice announcements via TTS, re-routing on deviation, arrival detection, and a full NavigationScreen.
+
+Work Log:
+- Created domain/model/NavigationUpdate.kt:
+  * NavigationUpdate data class: currentInstruction, nextInstruction, distanceToNextManeuverMeters, durationRemainingSeconds, distanceRemainingMeters, isArrived, isDeviating, isRerouting, currentSpeedMps.
+  * Computed properties: formattedDistanceToManeuver ("500 m" / "1.2 km"), formattedDurationRemaining ("9 min" / "1 hr 30 min", min 1).
+  * NavigationInstruction data class: text, maneuverType, modifier, distanceMeters, durationSeconds.
+  * NavigationInstruction.shortText — Arabic translations for all maneuver types (depart, arrive, turn left/right/uturn, continue, merge, roundabout, exit_roundabout, fork left/right). Falls back to `text` for unknown maneuvers.
+- Created core/maps/NavigationException.kt — sealed class: NavigationRouteMissing, NavigationEngineError.
+- Created core/maps/NavigationEngine.kt — interface with:
+  * suspend fun startNavigation(route: RouteResult) — begin guiding along a route.
+  * fun observeUpdates(): Flow<NavigationUpdate> — cold flow of live updates (progress, banner, arrival, reroute).
+  * fun stopNavigation() — release resources.
+  * val isActive: Boolean
+  * Clearly distinct from RoutingEngine (one-shot path vs continuous guidance).
+- Created core/maps/mapbox/MapboxNavigationEngine.kt:
+  * Uses MapboxNavigation SDK (free-form, not drop-in UI).
+  * startNavigation(): lazy-init MapboxNavigation with NavigationOptions, startTripSession, setRoutes.
+  * observeUpdates(): callbackFlow registering RouteProgressObserver, BannerInstructionsObserver, ArrivalObserver, RoutesObserver. All unregistered in awaitClose.
+  * RouteProgressObserver → distanceRemaining, durationRemaining, distanceToNextManeuver.
+  * BannerInstructionsObserver → current instruction text + maneuver type.
+  * ArrivalObserver → isArrived=true.
+  * RoutesObserver → isRerouting=false when new route set (after deviation re-route).
+  * stopNavigation(): stopTripSession + onDestroy + clear state.
+  * reconstituteDirectionsRoute(): builds a DirectionsRoute from RouteResult geometry (polyline6 encoding).
+  * encodePolyline() + encodeSigned() — standard polyline6 encoder.
+  * Internal NavigationUpdateState accumulates partial updates from different observers.
+- Updated core/maps/MapsModule.kt — provides MapboxNavigationEngine as singleton NavigationEngine (injects LocationProvider + RoutingEngine).
+- Created presentation/navigation/NavigationViewModel.kt:
+  * HiltViewModel injecting NavigationEngine, CalculateRouteUseCase, LocationProvider, DeliveryRepository, CustomerRepository, TransitionDeliveryUseCase.
+  * NavigationUiState: isCalculating, isNavigating, isArrived, route, update, customerName, customerPhone, error.
+  * startNavigation(deliveryId): load delivery + customer → get driver location → calculate route (with fallback) → start navigation engine → observe updates.
+  * observeNavigationUpdates(): collects from engine, updates state, drives voice announcements.
+  * initTts(context): initializes Android TextToSpeech with Arabic locale.
+  * speak(text): announces instruction via TTS (QUEUE_FLUSH to interrupt previous).
+  * stopNavigation(): stops engine + TTS, clears state.
+  * onCleared(): calls stopNavigation() to prevent leaks.
+  * lastSpokenInstruction tracks the last announced text to avoid repeating.
+- Created presentation/navigation/NavigationScreen.kt:
+  * LaunchedEffect: initTts + startNavigation on first composition.
+  * DisposableEffect: stopNavigation on dispose (screen exit).
+  * States: CalculatingView (spinner), ErrorView (retry button), ArrivedView (green check + "تم التسليم" button), NavigatingView (instruction banner + map placeholder + ETA card + Stop/Call buttons).
+  * InstructionBanner: color-coded (primary=normal, orange=rerouting, green=arrived) with maneuver icon + shortText + distance.
+  * ETA card: remaining distance + remaining duration.
+  * Customer name with location icon.
+  * Call + Stop navigation buttons.
+  * ArrivedView: large green Arrived icon + "وصلت إلى وجهتك" + customer name + "تم التسليم" button → onArrived callback.
+- Updated presentation/navigation/Routes.kt — added navigation(deliveryId) helper.
+- Updated presentation/navigation/WaselNavHost.kt:
+  * Added composable for Routes.NAVIGATION with deliveryId NavType.StringType.
+  * ActiveDeliveryScreen now passes onStartNavigation callback → navigates to Routes.navigation(deliveryId).
+- Updated presentation/delivery/active/ActiveDeliveryScreen.kt:
+  * Added onStartNavigation: (String) -> Unit parameter.
+  * ActiveDeliveryContent now accepts onStartNavigation callback.
+  * ON_THE_WAY state shows "بدء الملاحة" button (primary, enabled when route is ready) → calls onStartNavigation.
+  * "وصلت إلى الزبون" button is now secondary (secondary container color).
+  * Call + Cancel buttons unchanged.
+- Added 8 new string resources (nav_title, nav_starting, nav_arrived, nav_rerouting, nav_stop, nav_remaining, nav_continue_straight) in values/ + values-ar/.
+- Wrote 1 test file (15 test methods):
+  * NavigationUpdateTest.kt — 5 tests for NavigationUpdate computed properties (formattedDistanceToManeuver m/km, formattedDurationRemaining min/hr+min/min1).
+  * NavigationInstructionTest — 10 tests for shortText Arabic translations (depart, arrive, turn left/right/uturn, continue, merge, roundabout, exit_roundabout, unknown fallback).
+
+Stage Summary:
+- Phase 15 (Navigation & Alerts) complete.
+- 7 new Kotlin main files + 1 new test file added on top of Phase 14.
+- Total Android: 132 Kotlin main files + 25 test files = 157 Kotlin files.
+- Navigation architecture:
+  * core/maps/NavigationEngine — interface (SDK-agnostic)
+  * core/maps/NavigationException — sealed exception hierarchy
+  * core/maps/mapbox/MapboxNavigationEngine — production impl using Mapbox Navigation SDK
+  * domain/model/NavigationUpdate + NavigationInstruction — domain models with Arabic shortText
+  * presentation/navigation/NavigationViewModel — orchestrates route calculation + navigation + TTS
+  * presentation/navigation/NavigationScreen — full turn-by-turn UI
+- Key design decisions:
+  * NavigationEngine is separate from RoutingEngine — one-shot path vs continuous guidance. The RoutingEngine calculates the path; the NavigationEngine guides along it.
+  * Voice announcements via Android TextToSpeech (Arabic locale) — not Mapbox Voice API. This saves bandwidth + works offline. The ViewModel owns the TTS instance; the engine stays SDK-agnostic.
+  * lastSpokenInstruction prevents repeating the same instruction on every progress update.
+  * Re-routing is automatic: MapboxNavigation detects off-route → fires RoutesObserver with a new route. The engine emits isRerouting=true while re-routing, isRerouting=false when the new route is set.
+  * Arrival detection: MapboxNavigation fires ArrivalObserver → engine emits isArrived=true → NavigationScreen shows ArrivedView with "تم التسليم" button.
+  * Polyline6 encoding/decoding implemented from scratch (no external dependency beyond Mapbox SDK types).
+  * Stop button immediately stops navigation + TTS + pops back to Active Delivery screen.
+  * "بدء الملاحة" button on Active Delivery is enabled only when route is calculated (route != null && !isCalculatingRoute).
+- Navigation graph now has 12 routes: splash, login, home, customers, history, settings, add_customer, customer_details, edit_customer, capture_location, active_delivery, navigation.
+- Next: Phase 16 (Arrival Detection) — ArrivalDetector that uses GPS distance to customer to trigger arrival, GPS drift handling (average of last 3 readings), arrival radius configurable.

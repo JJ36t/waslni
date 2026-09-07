@@ -1,7 +1,9 @@
 package com.waslni.driver.core.maps
 
 import android.content.Context
+import com.waslni.driver.core.location.LocationProvider
 import com.waslni.driver.core.maps.mapbox.MapboxMapProvider
+import com.waslni.driver.core.maps.mapbox.MapboxNavigationEngine
 import com.waslni.driver.core.maps.mapbox.MapboxRoutingEngine
 import dagger.Module
 import dagger.Provides
@@ -15,8 +17,7 @@ import javax.inject.Singleton
  *
  * - Binds [MapboxMapProvider] as the singleton [MapProvider].
  * - Binds [MapboxRoutingEngine] as the singleton [RoutingEngine].
- *
- * Phase 15 will add NavigationEngine.
+ * - Binds [MapboxNavigationEngine] as the singleton [NavigationEngine].
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -33,4 +34,12 @@ object MapsModule {
     fun provideRoutingEngine(
         @ApplicationContext context: Context
     ): RoutingEngine = MapboxRoutingEngine(context)
+
+    @Provides
+    @Singleton
+    fun provideNavigationEngine(
+        @ApplicationContext context: Context,
+        locationProvider: LocationProvider,
+        routingEngine: RoutingEngine
+    ): NavigationEngine = MapboxNavigationEngine(context, locationProvider, routingEngine)
 }

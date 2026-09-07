@@ -153,7 +153,22 @@ fun WaselNavHost() {
                 com.waslni.driver.presentation.delivery.active.ActiveDeliveryScreen(
                     deliveryId = deliveryId,
                     onBack = { navController.popBackStack() },
-                    onFinished = { navController.popBackStack() }
+                    onFinished = { navController.popBackStack() },
+                    onStartNavigation = { id ->
+                        navController.navigate(Routes.navigation(id))
+                    }
+                )
+            }
+
+            composable(
+                route = Routes.NAVIGATION,
+                arguments = listOf(navArgument("deliveryId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val deliveryId = backStackEntry.arguments?.getString("deliveryId") ?: return@composable
+                com.waslni.driver.presentation.navigation.NavigationScreen(
+                    deliveryId = deliveryId,
+                    onBack = { navController.popBackStack() },
+                    onArrived = { navController.popBackStack() }
                 )
             }
 

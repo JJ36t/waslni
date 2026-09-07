@@ -122,4 +122,13 @@
     <string name="route_fallback_hint">مسار تقريبي (غير متصل بخدمة الملاحة)</string>
     <string name="route_recalculate">إعادة حساب الطريق</string>
     <string name="route_error">تعذر حساب الطريق</string>
+
+    <!-- Navigation -->
+    <string name="nav_title">الملاحة</string>
+    <string name="nav_starting">جاري بدء الملاحة…</string>
+    <string name="nav_arrived">وصلت إلى وجهتك</string>
+    <string name="nav_rerouting">جاري إعادة حساب المسار…</string>
+    <string name="nav_stop">إيقاف الملاحة</string>
+    <string name="nav_remaining">المتبقي</string>
+    <string name="nav_continue_straight">تابع بشكل مستقيم</string>
 </resources>

@@ -124,4 +124,13 @@
     <string name="route_fallback_hint">Approximate route (navigation service unavailable)</string>
     <string name="route_recalculate">Recalculate route</string>
     <string name="route_error">Couldn\'t calculate route</string>
+
+    <!-- Navigation -->
+    <string name="nav_title">Navigation</string>
+    <string name="nav_starting">Starting navigation…</string>
+    <string name="nav_arrived">You have arrived</string>
+    <string name="nav_rerouting">Recalculating route…</string>
+    <string name="nav_stop">Stop navigation</string>
+    <string name="nav_remaining">Remaining</string>
+    <string name="nav_continue_straight">Continue straight</string>
 </resources>

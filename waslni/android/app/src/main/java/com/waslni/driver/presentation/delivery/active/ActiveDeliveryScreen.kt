@@ -71,6 +71,7 @@ fun ActiveDeliveryScreen(
     deliveryId: String,
     onBack: () -> Unit,
     onFinished: () -> Unit,
+    onStartNavigation: (String) -> Unit = {},
     viewModel: ActiveDeliveryViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -153,7 +154,8 @@ fun ActiveDeliveryScreen(
                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
                                 context.startActivity(intent)
                             }
-                        }
+                        },
+                        onStartNavigation = { onStartDelivery(deliveryId) }
                     )
                 }
             }
@@ -183,7 +185,8 @@ private fun ActiveDeliveryContent(
     onMarkArrived: () -> Unit,
     onComplete: () -> Unit,
     onCancel: () -> Unit,
-    onCall: () -> Unit
+    onCall: () -> Unit,
+    onStartNavigation: () -> Unit
 ) {
     val delivery = state.delivery!!
     val status = delivery.status
@@ -259,15 +262,31 @@ private fun ActiveDeliveryContent(
         // Action buttons (depend on status)
         when (status) {
             DeliveryStatus.ON_THE_WAY -> {
+                // Start Navigation button (primary)
+                Button(
+                    onClick = onStartNavigation,
+                    enabled = state.route != null && !state.isCalculatingRoute,
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                ) {
+                    Icon(Icons.Default.Navigation, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.nav_title), fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(8.dp))
+                // Mark Arrived button
                 Button(
                     onClick = onMarkArrived,
                     enabled = state.canMarkArrived,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary
+                    ),
                     modifier = Modifier.fillMaxWidth().height(52.dp)
                 ) {
                     if (state.isTransitioning) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = MaterialTheme.colorScheme.onSecondary,
                             strokeWidth = 2.dp
                         )
                     } else {
