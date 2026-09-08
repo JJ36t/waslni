@@ -148,4 +148,20 @@
     <string name="history_stats_completion_rate">نسبة الإكمال</string>
     <string name="history_empty">لا توجد توصيلات في هذه الفترة</string>
     <string name="history_delivery_time">الوقت</string>
+
+    <!-- Settings -->
+    <string name="settings_theme">المظهر</string>
+    <string name="settings_theme_system">حسب النظام</string>
+    <string name="settings_theme_light">فاتح</string>
+    <string name="settings_theme_dark">داكن</string>
+    <string name="settings_gps_threshold">حد دقة GPS</string>
+    <string name="settings_gps_threshold_desc">أقصى دقة مقبولة عند التقاط موقع الزبون (بالأمتار)</string>
+    <string name="settings_arrival_radius">نطاق الوصول</string>
+    <string name="settings_arrival_radius_desc">المسافة التي يُعتبر فيها المندوب واصلاً إلى الزبون (بالأمتار)</string>
+    <string name="settings_retry_sync">إعادة المزامنة</string>
+    <string name="settings_retry_sync_desc">مزامنة جميع العمليات المعلقة يدويًا</string>
+    <string name="settings_logout">تسجيل الخروج</string>
+    <string name="settings_logout_confirm">هل تريد تسجيل الخروج؟ سيتم مسح جميع البيانات المحلية.</string>
+    <string name="settings_logout_yes">خروج</string>
+    <string name="settings_app_version">إصدار التطبيق</string>
 </resources>

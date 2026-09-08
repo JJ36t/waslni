@@ -150,4 +150,20 @@
     <string name="history_stats_completion_rate">Completion rate</string>
     <string name="history_empty">No deliveries in this period</string>
     <string name="history_delivery_time">Time</string>
+
+    <!-- Settings -->
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System default</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_gps_threshold">GPS accuracy threshold</string>
+    <string name="settings_gps_threshold_desc">Maximum acceptable accuracy when capturing customer location (meters)</string>
+    <string name="settings_arrival_radius">Arrival radius</string>
+    <string name="settings_arrival_radius_desc">Distance at which the driver is considered arrived at the customer (meters)</string>
+    <string name="settings_retry_sync">Retry sync</string>
+    <string name="settings_retry_sync_desc">Manually sync all pending operations</string>
+    <string name="settings_logout">Log out</string>
+    <string name="settings_logout_confirm">Log out? All local data will be cleared.</string>
+    <string name="settings_logout_yes">Log out</string>
+    <string name="settings_app_version">App version</string>
 </resources>

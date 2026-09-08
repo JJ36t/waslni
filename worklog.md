@@ -1265,3 +1265,59 @@ Stage Summary:
   * Vibration only for high-priority alerts — low-priority (delivery status) is silent to avoid annoying the driver.
   * SecurityException catch: permission can be revoked between the hasNotificationPermission() check and the notify() call (race condition). We catch + return -1.
 - Next: Phase 19 (Settings) — settings screen with Dark/Light mode toggle, GPS accuracy threshold slider, arrival radius slider, manual "retry sync" button, logout button, app version info.
+
+---
+Task ID: phase-19
+Agent: main
+Task: Phase 19 — Settings: Build the settings screen with theme toggle (System/Light/Dark), GPS accuracy threshold slider, arrival radius slider, manual retry sync button, logout with confirmation, and app version info.
+
+Work Log:
+- Created data/prefs/UserPreferences.kt:
+  * @Singleton, DataStore-backed (not EncryptedSharedPreferences — not sensitive).
+  * ThemeMode enum: SYSTEM (default), LIGHT, DARK.
+  * themeMode: Flow<ThemeMode> — persisted as string, parsed with valueOf (fallback to SYSTEM on parse error).
+  * gpsAccuracyThreshold: Flow<Float> — default 10m, coerced to 1..100 on write.
+  * arrivalRadius: Flow<Float> — default 50m, coerced to 10..500 on write.
+  * clear() — wipes all preferences (called on logout).
+- Created presentation/settings/SettingsViewModel.kt:
+  * HiltViewModel injecting UserPreferences, LogoutUseCase, SyncScheduler.
+  * SettingsUiState: themeMode, gpsAccuracyThreshold, arrivalRadius, isLoggingOut, isLoggedOut, appVersion.
+  * combine(themeMode, gpsThreshold, arrivalRadius, _aux) → single state emission.
+  * setThemeMode(mode) — persists to DataStore.
+  * setGpsAccuracyThreshold(meters) — persists with coercion.
+  * setArrivalRadius(meters) — persists with coercion.
+  * retrySync() — calls syncScheduler.scheduleImmediateSync() (manual sync trigger).
+  * logout() — calls LogoutUseCase + userPreferences.clear(), sets isLoggedOut=true on completion.
+  * resetLoggedOut() — clears the flag after the screen navigates to login.
+- Rewrote presentation/settings/SettingsScreen.kt (replaced placeholder):
+  * Vertical scrollable column with 5 sections separated by HorizontalDivider.
+  * Theme section: 3 FilterChips (System / Light / Dark) — selected chip is highlighted.
+  * GPS threshold section: Slider (1-50m, 1m steps) + current value display.
+  * Arrival radius section: Slider (10-200m, 5m steps) + current value display.
+  * Retry sync section: OutlinedButton with Sync icon → triggers immediate sync.
+  * Logout section: Button with Logout icon + confirmation dialog. Shows CircularProgressIndicator while logging out.
+  * App version: centered small text at the bottom.
+  * ConfirmationDialog for logout with "خروج" confirm button.
+  * LaunchedEffect on isLoggedOut → onLoggedOut() callback.
+- Added 15 new string resources (settings_theme, settings_theme_system/light/dark, settings_gps_threshold + desc, settings_arrival_radius + desc, settings_retry_sync + desc, settings_logout, settings_logout_confirm, settings_logout_yes, settings_app_version) in values/ + values-ar/.
+- Wrote 1 test file (9 test methods in 2 test classes):
+  * SettingsUiStateTest (5 tests) — default theme is SYSTEM, default GPS threshold is 10m, default arrival radius is 50m, not logging out / logged out by default, app version is "1.0.0".
+  * ThemeModeTest (4 tests) — enum has exactly 3 values, values in expected order, valueOf parses names, all names unique.
+
+Stage Summary:
+- Phase 19 (Settings) complete.
+- 3 new Kotlin main files + 1 new test file added on top of Phase 18.
+- Total Android: 141 Kotlin main files + 29 test files = 170 Kotlin files.
+- Settings architecture:
+  * data/prefs/UserPreferences — DataStore-backed preferences (theme, GPS threshold, arrival radius)
+  * presentation/settings/SettingsViewModel — reactive state + logout + manual sync
+  * presentation/settings/SettingsScreen — full settings UI with sliders + chips + buttons
+- Key design decisions:
+  * DataStore (not EncryptedSharedPreferences) for user preferences — they're not sensitive (theme, thresholds), and DataStore is the recommended modern alternative to SharedPreferences for non-sensitive data.
+  * Coercion on write: GPS threshold clamped to 1-100m, arrival radius to 10-500m. Prevents invalid values from corrupting the app behavior.
+  * ThemeMode.SYSTEM as default — respects the user's system-wide dark/light setting. The user can override per-app if they want.
+  * Manual retry sync: calls syncScheduler.scheduleImmediateSync() directly (not via use case) — the scheduler is lightweight enough to call directly from the ViewModel.
+  * Logout is destructive: clears auth tokens (via LogoutUseCase) + clears user preferences (via UserPreferences.clear()). After logout, the app returns to the login screen with a clean state.
+  * Logout confirmation dialog: prevents accidental logout (which would clear all local data).
+  * App version hardcoded as "1.0.0" for now — Phase 29 will read it from BuildConfig.versionName.
+- Next: Phase 20 (UI Polish) — review all screens for RTL, add animations, skeletons, empty/error states, test on different screen sizes. Then Phase 21 (Security Hardening) → Phase 22 (Testing) → Phase 23 (Performance) → Phase 24 (Real Device Testing) → ... → Phase 32 (MVP Launch).
