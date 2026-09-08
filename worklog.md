@@ -1212,3 +1212,56 @@ Stage Summary:
   * Empty state is informative: "لا توجد توصيلات في هذه الفترة" tells the user the period is correct, just no data.
   * Loading state: shows spinner only on first load; subsequent tab switches use the WhileSubscribed(5_000) strategy so the UI doesn't flash empty.
 - Next: Phase 18 (Notifications) — local notifications for arrival detection + navigation alerts + delivery status changes. NotificationHelper with channels, permission handling for API 33+.
+
+---
+Task ID: phase-18
+Agent: main
+Task: Phase 18 — Notifications: Build local notification system with NotificationHelper (channels + permission handling), NotificationType enum, use cases, and integration with ActiveDeliveryViewModel (arrival + completion + cancellation alerts).
+
+Work Log:
+- Created core/notifications/NotificationHelper.kt:
+  * @Singleton, constructor-injected with @ApplicationContext.
+  * NotificationType enum: APPROACHING_CUSTOMER, ARRIVED_AT_CUSTOMER, DELIVERY_COMPLETED, DELIVERY_CANCELLED.
+  * Two notification channels:
+    - "delivery_status" (IMPORTANCE_LOW) — completion/cancellation alerts.
+    - "navigation_alerts" (IMPORTANCE_HIGH) — arrival + approaching alerts with vibration.
+  * notify(type, title, message, pendingIntent) — sends a notification, returns notification ID or -1 if permission denied.
+  * cancel(notificationId) + cancelAll() — for clearing notifications.
+  * hasNotificationPermission() — checks POST_NOTIFICATIONS on API 33+, always true on older.
+  * Channel creation in init{} block — runs once when the singleton is constructed.
+  * Default Arabic titles + messages for each notification type.
+  * Vibration pattern [0, 250, 250, 250] for high-priority alerts.
+  * Stable notification IDs (1001-1004) so each type replaces its previous notification.
+  * SecurityException catch — permission might be revoked between check + notify.
+- Created domain/usecase/notification/SendNotificationUseCase.kt:
+  * SendNotificationUseCase — wraps helper.notify().
+  * CancelNotificationUseCase — wraps helper.cancel().
+  * HasNotificationPermissionUseCase — wraps helper.hasNotificationPermission().
+- Updated di/UseCaseModule.kt — provides all 3 notification use cases.
+- Updated presentation/delivery/active/ActiveDeliveryViewModel.kt:
+  * Injected SendNotificationUseCase.
+  * Arrival notification: when ArrivalDetector emits isArrived=true for the first time, sends ARRIVED_AT_CUSTOMER notification with customer name. Uses lastArrivalNotified flag to prevent repeating on every GPS update.
+  * Completion notification: when complete() succeeds, sends DELIVERY_COMPLETED notification.
+  * Cancellation notification: when cancel() succeeds, sends DELIVERY_CANCELLED notification.
+  * All notifications are best-effort — if permission is denied, notify() returns -1 silently.
+- Wrote 1 test file (5 test methods):
+  * NotificationTypeTest — enum has exactly 4 values, values in expected order, approaching≠arrived, completed≠cancelled, all names unique.
+
+Stage Summary:
+- Phase 18 (Notifications) complete.
+- 3 new Kotlin main files + 1 new test file added on top of Phase 17.
+- Total Android: 139 Kotlin main files + 28 test files = 167 Kotlin files.
+- Notification architecture:
+  * core/notifications/NotificationHelper — singleton, channel creation, permission check, send/cancel
+  * core/notifications/NotificationType — 4 types mapping to 2 channels
+  * domain/usecase/notification — 3 use cases (send, cancel, hasPermission)
+  * presentation/delivery/active/ActiveDeliveryViewModel — triggers notifications on arrival/completion/cancellation
+- Key design decisions:
+  * Two channels with different importance levels: navigation alerts are HIGH (visible + vibrating), delivery status is LOW (silent, just shows in notification shade).
+  * lastArrivalNotified flag prevents notification spam — arrival is announced once, not on every GPS update while arrived.
+  * Permission check is non-blocking: if POST_NOTIFICATIONS is denied, notify() returns -1 silently. The app still works, the driver just doesn't see notifications.
+  * Stable notification IDs per type: re-sending the same type replaces the previous notification (no stack of duplicates).
+  * Default Arabic messages hardcoded in NotificationHelper — no string resource dependency (simpler for a helper class that's used across features).
+  * Vibration only for high-priority alerts — low-priority (delivery status) is silent to avoid annoying the driver.
+  * SecurityException catch: permission can be revoked between the hasNotificationPermission() check and the notify() call (race condition). We catch + return -1.
+- Next: Phase 19 (Settings) — settings screen with Dark/Light mode toggle, GPS accuracy threshold slider, arrival radius slider, manual "retry sync" button, logout button, app version info.

@@ -121,6 +121,19 @@ object UseCaseModule {
         detector: com.waslni.driver.core.location.ArrivalDetector
     ) = com.waslni.driver.domain.usecase.arrival.ObserveArrivalUseCase(detector)
 
+    // === Notifications ===
+    @Provides fun provideSendNotificationUseCase(
+        helper: com.waslni.driver.core.notifications.NotificationHelper
+    ) = com.waslni.driver.domain.usecase.notification.SendNotificationUseCase(helper)
+
+    @Provides fun provideCancelNotificationUseCase(
+        helper: com.waslni.driver.core.notifications.NotificationHelper
+    ) = com.waslni.driver.domain.usecase.notification.CancelNotificationUseCase(helper)
+
+    @Provides fun provideHasNotificationPermissionUseCase(
+        helper: com.waslni.driver.core.notifications.NotificationHelper
+    ) = com.waslni.driver.domain.usecase.notification.HasNotificationPermissionUseCase(helper)
+
     // === Auth ===
     @Provides fun provideLoginUseCase(repo: AuthRepository) = LoginUseCase(repo)
 

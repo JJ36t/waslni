@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.waslni.driver.core.location.ArrivalState
 import com.waslni.driver.core.location.LocationProvider
+import com.waslni.driver.core.notifications.NotificationType
 import com.waslni.driver.domain.model.Customer
 import com.waslni.driver.domain.model.Delivery
 import com.waslni.driver.domain.model.DeliveryStatus
@@ -15,6 +16,7 @@ import com.waslni.driver.domain.usecase.arrival.ObserveArrivalUseCase
 import com.waslni.driver.domain.usecase.delivery.CancelDeliveryUseCase
 import com.waslni.driver.domain.usecase.delivery.CompleteDeliveryUseCase
 import com.waslni.driver.domain.usecase.delivery.TransitionDeliveryUseCase
+import com.waslni.driver.domain.usecase.notification.SendNotificationUseCase
 import com.waslni.driver.domain.usecase.routing.CalculateRouteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -84,7 +86,8 @@ class ActiveDeliveryViewModel @Inject constructor(
     private val cancelDelivery: CancelDeliveryUseCase,
     private val calculateRoute: CalculateRouteUseCase,
     private val locationProvider: LocationProvider,
-    private val observeArrival: ObserveArrivalUseCase
+    private val observeArrival: ObserveArrivalUseCase,
+    private val sendNotification: SendNotificationUseCase
 ) : ViewModel() {
 
     private val _deliveryId = MutableStateFlow<String?>(null)
@@ -163,6 +166,8 @@ class ActiveDeliveryViewModel @Inject constructor(
      * When isArrived=true, sets showArrivalSuggestion=true so the UI can
      * auto-highlight the "Mark Arrived" button.
      */
+    private var lastArrivalNotified = false
+
     private fun startArrivalDetection() {
         arrivalJob?.cancel()
         val customer = _customerCache.value ?: return
@@ -173,6 +178,15 @@ class ActiveDeliveryViewModel @Inject constructor(
                     it.copy(
                         arrivalState = state,
                         showArrivalSuggestion = state.isArrived
+                    )
+                }
+
+                // Send arrival notification once (not on every update)
+                if (state.isArrived && !lastArrivalNotified) {
+                    lastArrivalNotified = true
+                    sendNotification(
+                        type = NotificationType.ARRIVED_AT_CUSTOMER,
+                        message = "وصلت إلى موقع ${customer.name}. اضغط \"وصلت إلى الزبون\" للتأكيد."
                     )
                 }
             }
@@ -246,7 +260,13 @@ class ActiveDeliveryViewModel @Inject constructor(
             _aux.update { it.copy(isTransitioning = true, error = null) }
             val result = runCatching { completeDelivery(id) }
             result
-                .onSuccess { _aux.update { it.copy(isTransitioning = false) } }
+                .onSuccess {
+                    _aux.update { it.copy(isTransitioning = false) }
+                    sendNotification(
+                        type = NotificationType.DELIVERY_COMPLETED,
+                        message = "تم تسجيل التوصيل بنجاح."
+                    )
+                }
                 .onFailure { e ->
                     _aux.update {
                         it.copy(
@@ -270,7 +290,13 @@ class ActiveDeliveryViewModel @Inject constructor(
             _aux.update { it.copy(isTransitioning = true, error = null) }
             val result = runCatching { cancelDelivery(id) }
             result
-                .onSuccess { _aux.update { it.copy(isTransitioning = false) } }
+                .onSuccess {
+                    _aux.update { it.copy(isTransitioning = false) }
+                    sendNotification(
+                        type = NotificationType.DELIVERY_CANCELLED,
+                        message = "تم إلغاء التوصيل."
+                    )
+                }
                 .onFailure { e ->
                     _aux.update {
                         it.copy(
