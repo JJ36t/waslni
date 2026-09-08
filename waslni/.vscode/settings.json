@@ -1,0 +1,29 @@
+{
+  "editor.formatOnSave": true,
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/*.pyc": true,
+    "**/.gradle": true,
+    "**/build": true
+  },
+  "search.exclude": {
+    "**/build": true,
+    "**/.gradle": true,
+    "**/__pycache__": true,
+    "**/.venv": true
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[kotlin]": {
+    "editor.defaultFormatter": "fwcd.kotlin"
+  }
+}

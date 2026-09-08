@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-azuretools.vscode-docker",
+    "redhat.vscode-yaml",
+    "fwcd.kotlin",
+    "mathiasfrohlich.kotlin"
+  ],
+  "unwantedRecommendations": [
+    "mathiasfrohlich.kotlin"
+  ]
+}
