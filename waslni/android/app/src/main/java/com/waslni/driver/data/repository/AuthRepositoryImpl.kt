@@ -1,5 +1,6 @@
 package com.waslni.driver.data.repository
 
+import com.waslni.driver.core.monitoring.CrashReporter
 import com.waslni.driver.core.network.ApiException
 import com.waslni.driver.core.security.TokenManager
 import com.waslni.driver.data.remote.api.AuthApi
@@ -25,7 +26,8 @@ import javax.inject.Singleton
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApi,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val crashReporter: CrashReporter
 ) : AuthRepository {
 
     override suspend fun login(username: String, password: String): User {
@@ -42,14 +44,16 @@ class AuthRepositoryImpl @Inject constructor(
             role = body.user.role
         )
 
+        // Set user ID in crash reporter for correlation
+        crashReporter.setUserId(body.user.id)
+        crashReporter.logEvent("login_success")
+
         return body.user.toDomain()
     }
 
     override suspend fun logout() {
         val refresh = tokenManager.refreshToken
         if (refresh != null) {
-            // Best-effort: if the call fails (no network, server error),
-            // we still clear the local session.
             try {
                 authApi.logout(LogoutRequestDto(refresh))
             } catch (_: Exception) {
@@ -57,6 +61,8 @@ class AuthRepositoryImpl @Inject constructor(
             }
         }
         tokenManager.clearSession()
+        crashReporter.clearUserId()
+        crashReporter.logEvent("logout")
     }
 
     override fun hasSession(): Boolean = tokenManager.hasSession()

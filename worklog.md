@@ -1545,3 +1545,59 @@ Stage Summary:
   * Android: marker clustering (O(n) grid-based), OkHttp 10MB cache, LazyColumn keys, WhileSubscribed(5000), battery-aware location intervals.
   * Backend: 14 database indexes, eager loading (selectinload), pagination, COUNT(*) optimization, connection pool (10+20), QueryTimer slow-query detection.
 - Next: Phase 24 (Real Device Testing) → Phase 25 (Backend Production) → Phase 26 (Docker & Nginx) → Phase 27 (CI/CD) → ... → Phase 32 (MVP Launch).
+
+---
+Task ID: phase-24
+Agent: main
+Task: Phase 24 — Real Device Testing: Create comprehensive real device test plan (8 categories, 50+ test scenarios), crash/ANR reporting setup with CrashReporter, global uncaught exception handler, and test sign-off checklist.
+
+Work Log:
+- Created docs/testing/real-device-test-plan.md — comprehensive test plan with 8 categories:
+  * 1. GPS/Location Tests (6 scenarios): strong signal, weak signal, GPS disabled, permission denied, GPS drift (stationary), GPS drift (false arrival prevention).
+  * 2. Network/Offline Tests (6 scenarios): full online flow, offline add customer, offline complete delivery, offline app restart, slow network (3G), network switch (WiFi→4G→WiFi).
+  * 3. Map/Navigation Tests (4 scenarios): map display, marker clustering (50+), route calculation, turn-by-turn navigation (with re-routing + arrival).
+  * 4. Delivery Flow Tests (3 scenarios): full lifecycle (ON_THE_WAY→ARRIVED→DELIVERED), cancel delivery, duplicate active delivery prevention.
+  * 5. Battery/Performance Tests (4 metrics): 1hr active use <15%, idle <5%, memory <200MB, search <100ms.
+  * 6. UI/UX Tests (4 scenarios): RTL layout (9 screens), dark/light mode, empty states, error states.
+  * 7. Sync Tests (3 scenarios): multi-device conflict, idempotency retry (no double-completion), queue persistence across app restart.
+  * 8. Settings Tests (3 scenarios): theme toggle (immediate + persistent), GPS threshold + arrival radius, logout (clears session).
+  * Test sign-off criteria: 12 checkboxes, all must pass before MVP launch.
+
+- Created core/monitoring/CrashReporter.kt:
+  * @Singleton, @Inject constructor.
+  * reportException(exception, message, customKeys) — logs to Logcat + TODO Phase 28: Firebase Crashlytics.
+  * logEvent(eventName, params) — breadcrumb logging for crash reproduction.
+  * setUserId(userId) — correlates crashes with users (UUID, not PII).
+  * clearUserId() — called on logout.
+  * Security: NEVER includes tokens/passwords/phones in messages — documented in the method doc.
+  * Abstraction: swap Crashlytics → Sentry without touching call sites.
+
+- Created di/MonitoringModule.kt — provides CrashReporter as singleton.
+
+- Updated data/repository/AuthRepositoryImpl.kt:
+  * Injected CrashReporter.
+  * login() → crashReporter.setUserId(body.user.id) + logEvent("login_success").
+  * logout() → crashReporter.clearUserId() + logEvent("logout").
+
+- Updated WaselApp.kt:
+  * Injected CrashReporter.
+  * Installed global Thread.setDefaultUncaughtExceptionHandler — catches ALL unhandled exceptions and reports them before the app crashes. Delegates to the previous handler (Android's default crash dialog) after reporting.
+  * customKeys includes the thread name for debugging.
+
+Stage Summary:
+- Phase 24 (Real Device Testing) complete.
+- 3 new Kotlin main files (CrashReporter, MonitoringModule, updated WaselApp + AuthRepositoryImpl) + 1 test plan doc.
+- Total project: 147 Android main + 32 Android test + 61 Python + 10 docs = 250 files.
+- Real device testing infrastructure:
+  * Comprehensive test plan: 8 categories, 50+ test scenarios, each with step-by-step instructions + expected results + Pass/Fail column.
+  * Crash reporting: CrashReporter singleton + global uncaught exception handler. All crashes (handled + unhandled) are logged with context.
+  * User correlation: crashReporter.setUserId(userId) on login → crashes are correlated with specific users in the dashboard.
+  * Event breadcrumbs: logEvent("delivery_completed") etc. → crash reports show the sequence of actions that led to the crash.
+  * Sign-off checklist: 12 items, all must pass before MVP launch.
+- Key design decisions:
+  * CrashReporter is an abstraction (not Firebase-specific) — we can swap to Sentry without touching call sites. Phase 28 will wire it to Firebase Crashlytics.
+  * Global uncaught exception handler delegates to the previous handler after reporting — so the user still sees the standard "app crashed" dialog. We don't swallow crashes; we just report them before they happen.
+  * setUserId uses UUID (not username/phone) — no PII in the crash dashboard.
+  * Test plan is executable: each scenario has concrete steps, expected results, and a Pass/Fail column. A tester can work through it sequentially.
+  * Battery targets are realistic: 15%/hour for active navigation (GPS + screen on + network) is achievable with our battery-aware location intervals.
+- Next: Phase 25 (Backend Production Setup) → Phase 26 (Docker & Nginx) → Phase 27 (CI/CD) → Phase 28 (Monitoring — Firebase Crashlytics wiring) → ... → Phase 32 (MVP Launch).

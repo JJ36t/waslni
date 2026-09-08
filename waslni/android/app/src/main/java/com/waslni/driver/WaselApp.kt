@@ -3,6 +3,7 @@ package com.waslni.driver
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.waslni.driver.core.monitoring.CrashReporter
 import com.waslni.driver.data.sync.SyncScheduler
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -14,6 +15,7 @@ import javax.inject.Inject
  * - Configures WorkManager with HiltWorkerFactory so we can inject dependencies
  *   into WorkManager workers (used by SyncWorker).
  * - Starts the periodic sync schedule on startup.
+ * - Installs a global uncaught exception handler for crash reporting.
  */
 @HiltAndroidApp
 class WaselApp : Application(), Configuration.Provider {
@@ -24,6 +26,9 @@ class WaselApp : Application(), Configuration.Provider {
     @Inject
     lateinit var syncScheduler: SyncScheduler
 
+    @Inject
+    lateinit var crashReporter: CrashReporter
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -33,9 +38,20 @@ class WaselApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
 
+        // Install global crash handler — catches unhandled exceptions
+        // that would otherwise crash the app without being reported.
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, exception ->
+            crashReporter.reportException(
+                exception = exception,
+                message = "Uncaught exception on thread ${thread.name}",
+                customKeys = mapOf("thread" to thread.name)
+            )
+            // Delegate to the previous handler (Android's default → crash dialog)
+            previousHandler?.uncaughtException(thread, exception)
+        }
+
         // Schedule the periodic background sync (every 15 minutes).
-        // KEEP policy means: if already scheduled (e.g. from a previous app
-        // launch), we don't reset the schedule.
         syncScheduler.schedulePeriodicSync()
     }
 }
