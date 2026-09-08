@@ -1,0 +1,89 @@
+# Android CI — runs on every PR and push to develop/main.
+# Lint → Unit Tests → Build Debug APK → Upload Artifact.
+
+name: Android CI
+
+on:
+  pull_request:
+    paths:
+      - 'android/**'
+  push:
+    branches: [develop, main]
+    paths:
+      - 'android/**'
+
+jobs:
+  android-ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/**/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Create local.properties
+        run: |
+          echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > local.properties
+          echo "MAPBOX_DOWNLOADS_TOKEN=${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}" >> local.properties
+
+      - name: Lint (ktlint + detekt)
+        run: ./gradlew ktlintCheck detekt || true
+        continue-on-error: true  # Phase 22+: make this required
+
+      - name: Unit Tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results
+          path: android/app/build/test-results/testDebugUnitTest/
+          if-no-files-found: ignore
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      - name: Build Release AAB
+        if: github.ref == 'refs/heads/main'
+        env:
+          WASLNI_KEYSTORE_FILE: ${{ secrets.WASLNI_KEYSTORE_FILE }}
+          WASLNI_KEYSTORE_PASSWORD: ${{ secrets.WASLNI_KEYSTORE_PASSWORD }}
+          WASLNI_KEY_ALIAS: ${{ secrets.WASLNI_KEY_ALIAS }}
+          WASLNI_KEY_PASSWORD: ${{ secrets.WASLNI_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease
+
+      - name: Upload AAB
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aab-release
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30

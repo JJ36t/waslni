@@ -1670,3 +1670,52 @@ Stage Summary:
   * Deploy script: one-command update with optional migration.
   * Server hardening: SSH key-only, UFW firewall, fail2ban, auto-updates, non-root Docker.
 - Next: Phase 26 (Docker & Nginx — already done as part of Phase 25, so we'll mark it complete and move to Phase 27 CI/CD) → Phase 28 (Monitoring — Firebase Crashlytics) → Phase 29 (Release Build) → Phase 30 (Play Store) → Phase 31 (Documentation) → Phase 32 (MVP Launch).
+
+---
+Task ID: phase-27
+Agent: main
+Task: Phase 27 — CI/CD: Build GitHub Actions pipelines for Android CI (lint + tests + build), Backend CI (lint + tests + migrations + Docker), Deploy pipeline (tag → build → SSH → deploy + AAB), and CI/CD documentation.
+
+Work Log:
+- Created .github/workflows/android-ci.yml — Android CI pipeline:
+  * Triggers: PR to develop/main with android/** changes, push to develop/main.
+  * Steps: checkout → JDK 17 → Gradle cache → local.properties (Mapbox tokens) → ktlint+detekt → unit tests → upload test results → build debug APK → upload APK artifact (14-day retention) → build release AAB (main only, needs signing secrets) → upload AAB artifact (30-day retention).
+  * Gradle caching for faster subsequent builds.
+  * ktlint/detekt non-blocking (will be required in Phase 22+).
+
+- Created .github/workflows/backend-ci.yml — Backend CI pipeline:
+  * Triggers: PR to develop/main with backend/** changes, push to develop/main.
+  * PostgreSQL service container (postgres:15-alpine) with health check.
+  * Steps: checkout → Python 3.11 → install requirements → ruff lint → black format check → mypy type check (non-blocking) → alembic migrations → pytest with coverage → Codecov upload → pip-audit security scan → Docker image build.
+  * All env vars set in the workflow (DATABASE_URL, JWT_SECRET, etc.) — no secrets needed for CI.
+  * Coverage report uploaded to Codecov.
+
+- Created .github/workflows/deploy.yml — Production deploy pipeline:
+  * Triggers: tag push v* (e.g., v1.0.0).
+  * Job 1 (deploy-backend): extract version → build Docker image (tagged with version + latest) → login to container registry → push image → SSH into production server → git pull → docker compose pull → restart backend → alembic upgrade head → health check → create GitHub Release with auto-generated notes.
+  * Job 2 (build-android-release, needs deploy-backend): build release AAB with signing secrets → upload AAB artifact (90-day retention) → attach AAB to GitHub Release.
+  * Uses `environment: production` for GitHub environment protection (manual approval optional).
+  * SSH via appleboy/ssh-action.
+
+- Created docs/11-cicd-pipeline.md — comprehensive CI/CD documentation:
+  * Overview diagram (push → CI → tag → deploy → release).
+  * Android CI: 11 steps documented with required secrets.
+  * Backend CI: 12 steps documented with env vars.
+  * Deploy: 10 steps documented with required secrets.
+  * Branch protection rules: main (require PR + status checks + signed commits), develop (require PR + status checks).
+  * Required GitHub secrets: 11 secrets listed with descriptions.
+  * Release process: step-by-step (merge develop → main → tag → push → auto-deploy).
+  * Rollback procedure: Docker image rollback + git revert.
+  * CI/CD checklist: 14 items (12 done, 2 future).
+
+Stage Summary:
+- Phase 27 (CI/CD) complete.
+- 3 new GitHub Actions workflows + 1 new documentation file.
+- Total project: 147 Android main + 32 Android test + 61 Python + 12 docs + 3 workflows + config files = 286 total files.
+- CI/CD pipeline:
+  * Android CI: lint → tests → APK → AAB (on main).
+  * Backend CI: lint → tests → migrations → coverage → security audit → Docker build.
+  * Deploy: tag v* → build Docker image → push to registry → SSH → pull + restart + migrate → health check → GitHub Release with AAB.
+  * Branch protection: PR required + status checks required on main + develop.
+  * Release: merge develop → main → tag → push → auto-deploy + auto-release.
+- Next: Phase 28 (Monitoring — Firebase Crashlytics wiring) → Phase 29 (Release Build) → Phase 30 (Play Store) → Phase 31 (Documentation) → Phase 32 (MVP Launch).
