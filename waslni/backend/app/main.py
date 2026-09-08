@@ -64,6 +64,14 @@ def create_app() -> FastAPI:
         expose_headers=["X-Request-Id", "X-RateLimit-Remaining"],
     )
 
+    # Security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
+    from app.middleware.security_headers import SecurityHeadersMiddleware
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    # Rate limiting (100/min global, 5/min login)
+    from app.middleware.rate_limit import RateLimitMiddleware
+    app.add_middleware(RateLimitMiddleware)
+
     # === Routers ===
     app.include_router(v1_router, prefix="/api/v1", tags=["v1"])
 

@@ -1376,3 +1376,70 @@ Stage Summary:
   * WaselButton scale animation: 0.96x scale on press, 100ms — just enough tactile feedback to feel responsive without being distracting. Uses animateFloatAsState for smooth transition.
   * ErrorView includes optional retry button: the onRetry callback is passed through UiState.Error, so the StateView can render the retry button without the screen needing to handle it separately.
 - Next: Phase 21 (Security Hardening) → Phase 22 (Testing) → Phase 23 (Performance) → Phase 24 (Real Device) → ... → Phase 32 (MVP Launch).
+
+---
+Task ID: phase-21
+Agent: main
+Task: Phase 21 — Security Hardening: Add security headers middleware, rate limiting middleware, security audit tests (22 tests), Android network security config with certificate pinning, release signing config, and comprehensive security checklist documentation.
+
+Work Log:
+Backend:
+- Created app/middleware/security_headers.py — SecurityHeadersMiddleware that adds:
+  * X-Content-Type-Options: nosniff (prevents MIME sniffing)
+  * X-Frame-Options: DENY (prevents clickjacking)
+  * X-XSS-Protection: 0 (modern browsers use CSP, legacy filter is buggy)
+  * Referrer-Policy: no-referrer (don't leak API URL)
+  * Cache-Control: no-store, no-cache, must-revalidate (prevent caching of sensitive responses)
+  * Strict-Transport-Security: max-age=63072000; includeSubDomains; preload (HSTS — production only)
+  * Pragma: no-cache + Expires: 0 (legacy cache headers)
+- Created app/middleware/rate_limit.py — RateLimitMiddleware:
+  * In-memory sliding-window rate limiter (production should use Redis).
+  * Global limit: 100 req/min per user (extracted from JWT sub) or IP (unauthenticated).
+  * Login limit: 5 req/min per IP (brute-force protection).
+  * X-RateLimit-Limit / X-RateLimit-Remaining / X-RateLimit-Reset headers on every response.
+  * Skips /health endpoint (no rate limit on health checks).
+  * Returns 429 RATE_LIMIT_EXCEEDED when limit hit.
+- Updated app/main.py — registered SecurityHeadersMiddleware + RateLimitMiddleware.
+- Created tests/test_security_audit.py (22 test methods in 6 test classes):
+  * TestSecurityHeaders (4 tests) — X-Content-Type-Options, X-Frame-Options, Cache-Control, Referrer-Policy present.
+  * TestTokenTampering (5 tests) — modified signature → 401, wrong secret → 401, garbage → 401, empty bearer → 401, no header → 401.
+  * TestCrossDriverAccess (3 tests) — driver B cannot GET/PATCH/DELETE driver A's customer (404 not 403 — no info leak).
+  * TestSQLInjection (2 tests) — SQL injection in search → safe (parameterized queries), SQL in name → stored as string (no execution), table still exists after.
+  * TestInputValidation (5 tests) — latitude >90, longitude >180, name <2, phone <7, accuracy <0 → all 422.
+  * TestNoSensitiveDataLeakage (3 tests) — login response, customer response, /auth/me response → no password_hash field.
+
+Android:
+- Created res/xml/network_security_config.xml:
+  * Certificate pinning for api.waslni.com (Let's Encrypt ISRG Root X1 + X2 backup).
+  * <debug-overrides> trusts user CAs only in debug builds (for Charles/mitmproxy).
+  * Production: HTTPS only (cleartext disabled by default).
+- Updated AndroidManifest.xml — android:networkSecurityConfig="@xml/network_security_config".
+- Updated app/build.gradle.kts release build type:
+  * Release signing config reads from env vars / local.properties (WASLNI_KEYSTORE_FILE, WASLNI_KEYSTORE_PASSWORD, WASLNI_KEY_ALIAS, WASLNI_KEY_PASSWORD).
+  * No keystore in git — secrets come from CI environment.
+
+Docs:
+- Created docs/07-security-checklist.md — comprehensive pre-release security audit:
+  * Transport Security (5 items)
+  * Authentication & Authorization (11 items)
+  * Token Storage Android (5 items)
+  * Input Validation (6 items)
+  * API Security (8 items)
+  * Data Privacy (6 items)
+  * Android Build Security (7 items)
+  * Backend Deployment Security (7 items)
+  * Security Testing (6 items)
+  * Post-Launch Security (5 items — future)
+  * Total: 60+ checklist items, each with ✅ (done) or 🔲 (planned).
+
+Stage Summary:
+- Phase 21 (Security Hardening) complete.
+- 3 new Python files + 1 new test file (backend), 1 new XML + 2 updated files (Android), 1 new markdown (docs).
+- Total project: 144 Android main + 30 Android test + 58 Python + 7 docs.
+- Security posture:
+  * Defense in depth: HTTPS + HSTS + cert pinning + security headers + rate limiting + auth + input validation + SQL injection protection (parameterized queries) + no sensitive data leakage.
+  * No secrets in code: JWT_SECRET, MAPBOX_API_KEY, keystore — all from env vars.
+  * No info leak: same 404 for "not found" and "not yours"; error responses return code+message only (no stack traces, no DB internals).
+  * Rate limited: 5/min login (brute-force), 100/min global (abuse prevention).
+  * 22 security audit tests covering token tampering, cross-driver access, SQL injection, input validation, data leakage, security headers.
+- Next: Phase 22 (Testing) — comprehensive unit + integration + UI test coverage. Then Phase 23 (Performance) → Phase 24 (Real Device) → ... → Phase 32 (MVP Launch).

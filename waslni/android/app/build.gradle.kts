@@ -50,6 +50,23 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "API_BASE_URL", "\"https://api.waslni.com/api/v1/\"")
+
+            // Signing config — read keystore from local.properties or env vars.
+            // In CI, set WASLNI_KEYSTORE_FILE, WASLNI_KEYSTORE_PASSWORD,
+            // WASLNI_KEY_ALIAS, WASLNI_KEY_PASSWORD.
+            val keystoreFile = project.findProperty("WASLNI_KEYSTORE_FILE") as String?
+                ?: System.getenv("WASLNI_KEYSTORE_FILE")
+            if (keystoreFile != null) {
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(keystoreFile)
+                    storePassword = project.findProperty("WASLNI_KEYSTORE_PASSWORD") as String?
+                        ?: System.getenv("WASLNI_KEYSTORE_PASSWORD")
+                    keyAlias = project.findProperty("WASLNI_KEY_ALIAS") as String?
+                        ?: System.getenv("WASLNI_KEY_ALIAS")
+                    keyPassword = project.findProperty("WASLNI_KEY_PASSWORD") as String?
+                        ?: System.getenv("WASLNI_KEY_PASSWORD")
+                }
+            }
         }
     }
 
