@@ -1499,3 +1499,49 @@ Stage Summary:
   * Android: Gradle testDebugUnitTest with coverage enabled.
   * pip-audit for dependency vulnerability scanning.
 - Next: Phase 23 (Performance Optimization) → Phase 24 (Real Device Testing) → Phase 25 (Backend Production) → ... → Phase 32 (MVP Launch).
+
+---
+Task ID: phase-23
+Agent: main
+Task: Phase 23 — Performance Optimization: Add marker clustering for 50+ map markers, OkHttp response cache (10 MB), backend query optimization utilities (EXPLAIN ANALYZE + QueryTimer + index verification), and comprehensive performance targets documentation.
+
+Work Log:
+Android:
+- Created core/maps/model/MarkerCluster.kt:
+  * MarkerCluster data class: position (centroid), count, markerIds, markers. Computed: isSingle (count==1), id (stable for same position).
+  * clusterMarkers(markers, cellSizeDegrees=0.005, threshold=50) — grid-based clustering:
+    - Below threshold (50 markers): return single-marker clusters (no overhead).
+    - Above threshold: divide markers into grid cells (0.005° ≈ 500m), group markers in the same cell → one cluster per cell.
+    - Centroid = average of all member positions.
+    - O(n) algorithm — fast for thousands of markers.
+  * MarkerClusterConfig object: DEFAULT_CELL_SIZE=0.005, CLUSTER_THRESHOLD=50.
+- Updated di/NetworkModule.kt — OkHttp client now configured with:
+  * Cache: 10 MB at context.cacheDir/http_cache.
+  * Caches GET responses when server sends Cache-Control with max-age.
+  * Authenticated responses NOT cached (user-specific + token leakage risk).
+- Wrote test/java/.../MarkerClusteringTest.kt (9 tests): below threshold → single clusters, above threshold → grouping, different cells → separate clusters, centroid is average, count matches cell members, empty → empty, single marker → single cluster, cluster ID stable, isSingle false for count>1.
+
+Backend:
+- Created app/core/query_optimization.py:
+  * explain_query(session, sql, params) — runs EXPLAIN ANALYZE and returns the plan. Use during development to verify indexes are used (look for "Index Scan" vs "Seq Scan").
+  * QueryTimer context manager — logs query execution time, warns if > SLOW_QUERY_THRESHOLD_MS (100ms).
+  * VERIFY_INDEXES_SQL — SQL query to list all indexes on the app's tables.
+  * EXPECTED_INDEXES — dict mapping table names to expected index names (from the initial migration). Used for post-migration verification.
+
+Docs:
+- Created docs/09-performance-targets.md — comprehensive performance documentation:
+  * Android targets: app startup <2s, map load <1.5s, search <100ms, memory <200MB, battery <15%/hr.
+  * Android optimizations: marker clustering, OkHttp cache, LazyColumn with keys, Flow + WhileSubscribed(5000), battery-aware location intervals, skeleton loading.
+  * Backend targets: API p50 <200ms, p95 <500ms, p99 <1s, DB query <5ms (PK) / <30ms (paginated) / <50ms (search).
+  * Backend optimizations: indexes (listed all 14), eager loading (N+1 fix), pagination, count optimization, connection pool (10+20), query timer, rate limiting.
+  * Performance testing instructions for both platforms.
+  * Pre-launch checklist (12 done, 3 future).
+
+Stage Summary:
+- Phase 23 (Performance Optimization) complete.
+- 2 new Kotlin main files + 1 new Kotlin test file (Android), 1 new Python file (backend), 1 new markdown (docs), 1 updated file (NetworkModule).
+- Total project: 145 Android main + 32 Android test + 61 Python + 9 docs = 247 files.
+- Performance optimizations:
+  * Android: marker clustering (O(n) grid-based), OkHttp 10MB cache, LazyColumn keys, WhileSubscribed(5000), battery-aware location intervals.
+  * Backend: 14 database indexes, eager loading (selectinload), pagination, COUNT(*) optimization, connection pool (10+20), QueryTimer slow-query detection.
+- Next: Phase 24 (Real Device Testing) → Phase 25 (Backend Production) → Phase 26 (Docker & Nginx) → Phase 27 (CI/CD) → ... → Phase 32 (MVP Launch).

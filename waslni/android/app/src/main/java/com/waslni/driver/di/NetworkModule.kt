@@ -82,23 +82,29 @@ object NetworkModule {
         authInterceptor: AuthInterceptor,
         errorInterceptor: ErrorInterceptor,
         authenticator: TokenAuthenticator,
-        json: Json
+        json: Json,
+        @ApplicationContext context: Context
     ): OkHttpClient {
+        // HTTP cache — 10 MB. Caches GET responses when the server allows it
+        // (Cache-Control headers). Authenticated responses are NOT cached
+        // because they contain user-specific data + the Authorization header
+        // would leak between users.
+        val cacheDir = context.cacheDir.resolve("http_cache")
+        val cache = okhttp3.Cache(cacheDir, 10L * 1024 * 1024)
+
         val builder = OkHttpClient.Builder()
+            .cache(cache)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .authenticator(authenticator)
-            // Application interceptors — see the original request + final response
             .addInterceptor(authInterceptor)
             .addInterceptor(errorInterceptor)
 
-        // Verbose logging in debug builds only
         if (BuildConfig.DEBUG) {
             val logging = HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.HEADERS
-                // Body level would log tokens — avoid in case logs leak.
             }
             builder.addInterceptor(logging)
         }
