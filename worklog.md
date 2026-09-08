@@ -1817,3 +1817,43 @@ Stage Summary:
   * Version: 1.0.0 (code=1) for MVP launch.
 - Release checklist: 30+ items across 6 categories — all must be checked before Play Store upload.
 - Next: Phase 30 (Play Store) → Phase 31 (Documentation) → Phase 32 (MVP Launch 🚀).
+
+---
+Task ID: phase-30
+Agent: main
+Task: Phase 30 — Play Store Preparation: Create complete Play Store listing (name, descriptions, screenshots), Privacy Policy, Data Safety form, Content Rating questionnaire, staged rollout plan, and Play Store upload checklist.
+
+Work Log:
+- Created docs/14-play-store.md — comprehensive Play Store preparation guide:
+  * Store Listing: app name ("وصلني — Waselni"), short description (80 chars), full description (4000 chars in Arabic with feature list), developer info, privacy policy URL.
+  * Screenshots spec: 8 screenshots (Home/Map, Add Customer, Customer Details, Active Delivery, Navigation, History, Offline, Settings) with phone dimensions (1080x1920), feature graphic (1024x500), app icon (512x512).
+  * Categorization: Maps & Navigation, Everyone, 18+, Free, no ads, no IAP.
+  * Data Safety form: 7 data types declared (name, phone, location approximate+precise, app activity, crashes, device ID) with encryption + deletion confirmed. 12 data types explicitly NOT collected.
+  * Content Rating questionnaire: all "No" except location sharing → "Everyone".
+  * Target audience: 18+ (professional drivers).
+  * Release notes for v1.0.0 (Arabic, feature list + tech highlights).
+  * Staged rollout plan: Internal testing (20 testers, 3 days) → Closed testing (100 users, 5 days) → Open beta (500 users, 5 days) → Production 10% (3 days) → 50% (3 days) → 100%. Rollback criteria: crash >2%, ANR >1%, critical bug, rating <3.0.
+  * Play Store upload checklist: 25+ items across 5 categories (pre-upload, store listing, categorization, data safety, release).
+
+- Created docs/15-privacy-policy.md — complete Privacy Policy:
+  * Data collected: account (username + hashed password), customer (name + phone + GPS + accuracy), delivery (status + timestamps), location (driver GPS during active delivery), technical (crash reports + device model + UUID).
+  * Data NOT collected: 12 explicit exclusions (email, contacts, SMS, photos, browsing, biometrics, ad IDs, financial).
+  * How data is used: service provision, multi-device sync, bug fixing. NOT for ads, NOT sold, NOT shared (except Firebase + Mapbox).
+  * Security measures: HTTPS + cert pinning, AES-256-GCM token storage, Argon2id password hashing, parameterized queries, rate limiting, HSTS, JWT rotation, ProGuard obfuscation.
+  * Data retention: account until deletion, customers until driver deletes, crash reports 90 days, audit logs 1 year, sync ops 7 days.
+  * User rights: access (in-app), deletion (in-app + support@waslni.com), export (future).
+  * Third-party services: Firebase Crashlytics (crash data only) + Mapbox (GPS for routing). Neither receives phones/passwords/tokens.
+  * Children's privacy: not for children, no knowingly collected data.
+
+Stage Summary:
+- Phase 30 (Play Store Preparation) complete.
+- 2 new documentation files (play-store.md + privacy-policy.md).
+- Total project: 147 Android main + 32 Android test + 62 Python + 16 docs + 3 workflows + config = 293 total files.
+- Play Store readiness:
+  * Store listing: name, short + full description, screenshots spec, feature graphic, app icon — all specified.
+  * Privacy Policy: complete, covering all 5 data categories, security measures, retention, user rights, third-party services.
+  * Data Safety form: 7 declared types, 12 excluded types, encryption + deletion confirmed.
+  * Content rating: Everyone.
+  * Staged rollout: 6-stage plan with monitoring + rollback criteria.
+  * Upload checklist: 25+ items.
+- Next: Phase 31 (Documentation Finalization) → Phase 32 (MVP Launch 🚀).
