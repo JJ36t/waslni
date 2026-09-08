@@ -1443,3 +1443,59 @@ Stage Summary:
   * Rate limited: 5/min login (brute-force), 100/min global (abuse prevention).
   * 22 security audit tests covering token tampering, cross-driver access, SQL injection, input validation, data leakage, security headers.
 - Next: Phase 22 (Testing) — comprehensive unit + integration + UI test coverage. Then Phase 23 (Performance) → Phase 24 (Real Device) → ... → Phase 32 (MVP Launch).
+
+---
+Task ID: phase-22
+Agent: main
+Task: Phase 22 — Testing (Comprehensive): Add service-layer unit tests (CustomerService + DeliveryService), Android repository tests (CustomerRepositoryImpl), coverage configuration, pip-audit dependency scanning, and testing strategy documentation.
+
+Work Log:
+Backend:
+- Created tests/test_customer_service.py (13 test methods in 5 test classes):
+  * TestCustomerServiceCreate (5 tests) — returns customer with ID, strips whitespace from name, strips formatting from phone, duplicate phone raises ConflictError, same phone different drivers succeeds (UNIQUE is per-driver).
+  * TestCustomerServiceGet (3 tests) — returns customer, unknown raises NotFoundError, other driver's customer raises NotFoundError (not Forbidden — no info leak).
+  * TestCustomerServiceUpdate (3 tests) — update name only, phone to duplicate raises ConflictError, phone to same value succeeds (no false duplicate).
+  * TestCustomerServiceDelete (2 tests) — removes customer (verified by get → NotFound), active delivery raises ConflictError(CUSTOMER_HAS_ACTIVE_DELIVERY).
+  * TestCustomerServiceList (2 tests) — paginated results (5 created, 3 returned, total=5), search by name.
+  * Fixtures: customer_service, delivery_service, other_driver_user.
+- Created tests/test_delivery_service.py (11 test methods in 3 test classes):
+  * TestDeliveryServiceCreate (3 tests) — returns delivery with started_at + eager-loaded customer, unknown customer raises NotFoundError, duplicate active raises ConflictError.
+  * TestDeliveryServiceStateMachine (5 tests) — valid ON_THE_WAY→ARRIVED, valid ARRIVED→DELIVERED, invalid skip ON_THE_WAY→DELIVERED raises ConflictError(INVALID_STATE_TRANSITION), invalid from terminal (CANCELLED→DELIVERED), cancel from ON_THE_WAY, unknown delivery raises NotFoundError.
+  * TestDeliveryServiceIdempotency (2 tests) — same key + same body returns cached response (same completed_at), same key + different body raises ConflictError(IDEMPOTENCY_CONFLICT).
+  * Fixtures: delivery_service, customer_service, other_driver_user.
+- Updated pytest.ini — added `--cov=app --cov-report=term-missing --cov-report=html` to addopts.
+- Created .coveragerc — coverage config: source=app, omits __init__.py + main.py + logging.py, excludes lines with pragma/abstractmethod/TYPE_CHECKING.
+- Updated requirements-dev.txt — added pip-audit==2.7.3 for dependency vulnerability scanning.
+
+Android:
+- Created test/java/com/waslni/driver/data/repository/CustomerRepositoryImplTest.kt (8 test methods):
+  * observeAll maps entities to domain (2 entities → 2 customers).
+  * addCustomer inserts entity + enqueues sync op + schedules sync (verifies syncState=PENDING, operation=CREATE_CUSTOMER, status=PENDING).
+  * addCustomer with duplicate phone throws IllegalArgumentException.
+  * updateCustomer with unknown id throws IllegalArgumentException.
+  * deleteCustomer with active delivery throws IllegalStateException.
+  * deleteCustomer removes entity + enqueues delete sync op.
+  * getCustomerByPhone returns matching customer.
+  * getCustomerByPhone returns null when not found.
+  * Uses mockk for DAOs — verifies exactly what's written to Room + sync queue.
+
+Docs:
+- Created docs/08-testing-strategy.md — comprehensive testing documentation:
+  * Backend: 13 test files, 150+ test methods, coverage config, pip-audit, run instructions.
+  * Android: 31 test files, 200+ test methods, categorized by layer.
+  * Test strategy: what we test, what we don't test (yet), test principles (fast, isolated, readable, deterministic, comprehensive).
+  * Coverage targets: backend services ≥80%, Android domain ≥90%, etc.
+
+Stage Summary:
+- Phase 22 (Testing) complete.
+- 2 new Python test files + 2 config files (backend), 1 new Kotlin test file (Android), 1 new markdown (docs).
+- Total project: 144 Android main + 31 Android test + 60 Python + 8 docs.
+- Test coverage:
+  * Backend: 13 test files covering config, exceptions, security, health, auth, customers, deliveries, sync, security audit, customer service, delivery service. ~150+ test methods.
+  * Android: 31 test files covering domain models, DAOs, repositories, use cases, ViewModels, sync, location, maps, network, security, UI components, notifications, settings. ~200+ test methods.
+  * Total: 350+ test methods across both platforms.
+- Coverage configuration:
+  * Backend: pytest-cov with --cov=app, HTML report in htmlcov/, .coveragerc excludes boilerplate.
+  * Android: Gradle testDebugUnitTest with coverage enabled.
+  * pip-audit for dependency vulnerability scanning.
+- Next: Phase 23 (Performance Optimization) → Phase 24 (Real Device Testing) → Phase 25 (Backend Production) → ... → Phase 32 (MVP Launch).
