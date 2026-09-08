@@ -1,28 +1,32 @@
 package com.waslni.driver.core.monitoring
 
 import android.util.Log
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Lightweight crash + error reporter.
+ * Crash + error reporter backed by Firebase Crashlytics.
  *
- * In production, this delegates to Firebase Crashlytics (or Sentry).
- * In development, it logs to Logcat.
- *
- * The abstraction lets us swap reporting backends without touching the
- * rest of the app. Call sites use [reportException] / [logEvent] and
- * don't know (or care) where the data ends up.
+ * In production: delegates to FirebaseCrashlytics.
+ * In development: also logs to Logcat for easy debugging.
  *
  * Usage:
- *   @Inject lateinit var crashReporter: CrashReporter
  *   crashReporter.reportException(e, "Failed to sync customer")
- *   crashReporter.logEvent("delivery_completed", mapOf("delivery_id" to id))
- *
- * Phase 28 will wire this to Firebase Crashlytics.
+ *   crashReporter.logEvent("delivery_completed")
  */
 @Singleton
 class CrashReporter @Inject constructor() {
+
+    private val crashlytics: FirebaseCrashlytics? = try {
+        FirebaseCrashlytics.getInstance()
+    } catch (e: Exception) {
+        null  // Firebase not initialized (unit tests without google-services.json)
+    }
+
+    init {
+        crashlytics?.isCrashlyticsCollectionEnabled = true
+    }
 
     fun reportException(
         exception: Throwable,
@@ -31,29 +35,33 @@ class CrashReporter @Inject constructor() {
     ) {
         if (message != null) {
             Log.e(TAG, message, exception)
+            crashlytics?.log(message)
         } else {
             Log.e(TAG, "Exception reported", exception)
         }
+
         customKeys.forEach { (key, value) ->
             Log.d(TAG, "customKey: $key=$value")
+            crashlytics?.setCustomKey(key, value)
         }
-        // TODO Phase 28: FirebaseCrashlytics.getInstance().recordException(exception)
+
+        crashlytics?.recordException(exception)
     }
 
     fun logEvent(eventName: String, params: Map<String, String> = emptyMap()) {
         val paramString = if (params.isEmpty()) "" else " $params"
         Log.i(TAG, "event: $eventName$paramString")
-        // TODO Phase 28: FirebaseCrashlytics.getInstance().log("$eventName $params")
+        crashlytics?.log("event: $eventName$paramString")
     }
 
     fun setUserId(userId: String) {
         Log.i(TAG, "user_id set: $userId")
-        // TODO Phase 28: FirebaseCrashlytics.getInstance().setUserId(userId)
+        crashlytics?.setUserId(userId)
     }
 
     fun clearUserId() {
         Log.i(TAG, "user_id cleared")
-        // TODO Phase 28: FirebaseCrashlytics.getInstance().setUserId("")
+        crashlytics?.setUserId("")
     }
 
     companion object {

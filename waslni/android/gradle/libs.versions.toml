@@ -4,6 +4,11 @@ agp = "8.5.2"
 kotlin = "1.9.24"
 ksp = "1.9.24-1.0.20"
 
+# Firebase
+googleServices = "4.4.2"
+firebaseCrashlytics = "3.0.2"
+firebaseBom = "33.3.0"
+
 # AndroidX Core
 coreKtx = "1.13.1"
 lifecycle = "2.8.6"
@@ -131,9 +136,15 @@ androidx-room-testing = { group = "androidx.room", name = "room-testing", versio
 androidx-arch-core-testing = { group = "androidx.arch.core", name = "core-testing", version.ref = "archCoreTesting" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "mockwebserver" }
 
+# Firebase
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlytics" }

@@ -1,0 +1,32 @@
+{
+  "_comment": "This is a PLACEHOLDER. Download the real google-services.json from Firebase Console → Project Settings → Download google-services.json. Place it at android/app/google-services.json. DO NOT commit the real file to git — add it to .gitignore.",
+  "project_info": {
+    "project_number": "PLACEHOLDER",
+    "project_id": "waslni-app",
+    "storage_bucket": "waslni-app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:PLACEHOLDER",
+        "android_client_info": {
+          "package_name": "com.waslni.driver"
+        }
+      },
+      "api_key": [
+        { "current_key": "PLACEHOLDER_API_KEY" }
+      ]
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:PLACEHOLDER_DEBUG",
+        "android_client_info": {
+          "package_name": "com.waslni.driver.debug"
+        }
+      },
+      "api_key": [
+        { "current_key": "PLACEHOLDER_API_KEY" }
+      ]
+    }
+  ]
+}

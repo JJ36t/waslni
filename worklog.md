@@ -1719,3 +1719,56 @@ Stage Summary:
   * Branch protection: PR required + status checks required on main + develop.
   * Release: merge develop → main → tag → push → auto-deploy + auto-release.
 - Next: Phase 28 (Monitoring — Firebase Crashlytics wiring) → Phase 29 (Release Build) → Phase 30 (Play Store) → Phase 31 (Documentation) → Phase 32 (MVP Launch).
+
+---
+Task ID: phase-28
+Agent: main
+Task: Phase 28 — Monitoring & Logging: Wire Firebase Crashlytics to CrashReporter, backend structured logging with sensitive field redaction, /metrics endpoint for uptime monitoring, and comprehensive monitoring documentation.
+
+Work Log:
+Android:
+- Updated gradle/libs.versions.toml — added Firebase BOM 33.3.0 + Crashlytics Gradle plugin 3.0.2 + google-services plugin 4.4.2.
+- Updated build.gradle.kts (root) — added google-services + firebase-crashlytics plugins.
+- Updated app/build.gradle.kts — applied google-services + firebase-crashlytics plugins, added firebase-bom + firebase-crashlytics dependencies.
+- Created app/google-services.json.example — placeholder with instructions to download the real file from Firebase Console.
+- Updated .gitignore — added google-services.json (don't commit the real file).
+- Updated core/monitoring/CrashReporter.kt — replaced TODO stubs with actual Firebase Crashlytics calls:
+  * reportException() → crashlytics.recordException(exception) + crashlytics.log(message) + crashlytics.setCustomKey() for each custom key.
+  * logEvent() → crashlytics.log("event: ...") as breadcrumb.
+  * setUserId() → crashlytics.setUserId(userId) (UUID, not PII).
+  * clearUserId() → crashlytics.setUserId("").
+  * init { crashlytics.isCrashlyticsCollectionEnabled = true }.
+  * Try-catch around FirebaseCrashlytics.getInstance() — gracefully handles unit test environments without google-services.json.
+
+Backend:
+- Updated app/core/logging.py — enhanced structured logging:
+  * SENSITIVE_FIELDS frozenset — 11 fields that must never appear in logs (password, tokens, phone, coordinates, etc.).
+  * _redact_sensitive_fields structlog processor — automatically replaces sensitive field values with "***REDACTED***". Defense-in-depth — catches accidental leaks.
+  * get_logger(name) convenience function — returns structlog logger for structured event logging.
+  * Reduced noise: sqlalchemy.engine logger set to WARNING in production.
+  * JSON format includes: event, level, timestamp (ISO), stack info, exception info, + any custom fields.
+- Created app/api/metrics.py — /metrics endpoint for uptime monitoring:
+  * Returns: status (ok/degraded), db (ok/unreachable), db_latency_ms, env, version, uptime_seconds, timestamp.
+  * Executes SELECT 1 with timing for DB latency measurement.
+  * NOT authenticated — meant for external monitors (UptimeRobot, BetterStack).
+  * Does NOT expose business metrics (no customer/delivery counts — no info leak).
+- Updated app/api/v1.py — included metrics_router.
+
+Docs:
+- Created docs/12-monitoring.md — comprehensive monitoring documentation:
+  * Android Crashlytics: setup steps, what's tracked (crashes, breadcrumbs, user ID), custom keys usage, events logged, privacy guarantees.
+  * Backend logging: JSON format example, sensitive field redaction, usage examples (logger.info/warning/error).
+  * Uptime monitoring: /health + /metrics endpoints, response format, UptimeRobot configuration (URL, interval, expected content, alert thresholds).
+  * Log aggregation (future): Docker log rotation, Loki+Grafana / ELK stack recommendations, logrotate config.
+  * Monitoring checklist: 13 items (9 done, 4 future).
+
+Stage Summary:
+- Phase 28 (Monitoring & Logging) complete.
+- 3 new files + 5 updated files (Android + backend + docs).
+- Total project: 147 Android main + 32 Android test + 62 Python + 13 docs + 3 workflows + config = 290 total files.
+- Monitoring infrastructure:
+  * Android: Firebase Crashlytics — crashes, breadcrumbs, user correlation, event tracking. Global uncaught exception handler from Phase 24.
+  * Backend: structlog JSON logging with sensitive field redaction. get_logger() for structured event logging. SQLAlchemy engine noise reduced.
+  * Uptime: /metrics endpoint with DB latency + uptime. UptimeRobot integration documented.
+  * Privacy: UUID-only user IDs, no PII in logs, automatic redaction of 11 sensitive field names.
+- Next: Phase 29 (Release Build) → Phase 30 (Play Store) → Phase 31 (Documentation) → Phase 32 (MVP Launch 🚀).
