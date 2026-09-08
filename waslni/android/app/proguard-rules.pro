@@ -44,6 +44,11 @@
 -dontwarn com.mapbox.**
 -keep class com.mapbox.** { *; }
 
+# Firebase Crashlytics
+-dontwarn com.google.firebase.**
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+
 # Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}

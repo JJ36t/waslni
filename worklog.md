@@ -1772,3 +1772,48 @@ Stage Summary:
   * Uptime: /metrics endpoint with DB latency + uptime. UptimeRobot integration documented.
   * Privacy: UUID-only user IDs, no PII in logs, automatic redaction of 11 sensitive field names.
 - Next: Phase 29 (Release Build) → Phase 30 (Play Store) → Phase 31 (Documentation) → Phase 32 (MVP Launch 🚀).
+
+---
+Task ID: phase-29
+Agent: main
+Task: Phase 29 — Release Build: Verify ProGuard/R8 rules for Firebase, confirm signing config, create comprehensive release build guide with checklist, signing instructions, and CI/CD release process.
+
+Work Log:
+- Updated app/proguard-rules.pro — added Firebase Crashlytics + Google Play Services keep rules:
+  * -dontwarn com.google.firebase.**
+  * -keep class com.google.firebase.** { *; }
+  * -keep class com.google.android.gms.** { *; }
+- Verified app/build.gradle.kts release build type:
+  * isMinifyEnabled = true (R8 code shrinking + obfuscation)
+  * isShrinkResources = true (unused resource removal)
+  * API_BASE_URL = "https://api.waslni.com/api/v1/" (production URL)
+  * Signing config reads from env vars / local.properties (WASLNI_KEYSTORE_FILE etc.)
+  * applicationIdSuffix = ".debug" for debug builds (no conflict with release)
+  * versionCode = 1, versionName = "1.0.0" (already set for MVP)
+- Created docs/13-release-build-guide.md — comprehensive release guide:
+  * Prerequisites: keystore generation (keytool), local.properties signing config, google-services.json setup.
+  * Build steps: clean + test → bundleRelease → verify signing → install on device → test.
+  * Release checklist (30+ items across 6 categories):
+    - Build Configuration (8 items: version code, API URL, minify, debuggable, ProGuard, signing, google-services)
+    - Code Quality (5 items: tests pass, no TODOs, no hardcoded secrets, no Log.d, no DEBUG branches)
+    - Security (5 items: HTTPS, cert pinning, encrypted storage, obfuscation, no source leaks)
+    - Firebase (3 items: production google-services.json, Crashlytics enabled, test crash verified)
+    - Backend (5 items: deployed + healthy, migrations, seed users, SSL, backups)
+    - Testing (6 items: 2 real devices, full delivery flow, offline mode, no crashes, battery, test plan sign-off)
+  * Version history table + versioning convention (major.minor.patch + versionCode increment).
+  * CI/CD release process (tag → auto build → auto deploy).
+  * Manual release fallback (env vars + ./gradlew bundleRelease).
+
+Stage Summary:
+- Phase 29 (Release Build) complete.
+- 1 updated file (proguard-rules.pro) + 1 new doc (release-build-guide.md).
+- Total project: 147 Android main + 32 Android test + 62 Python + 14 docs + 3 workflows + config = 291 total files.
+- Release build configuration:
+  * R8: minify + shrinkResources + obfuscation enabled.
+  * ProGuard: keep rules for Hilt, Room, Retrofit, kotlinx.serialization, Mapbox, Firebase, Coroutines, Application class.
+  * Signing: keystore from env vars (never in git), JKS format, 4096-bit RSA, 10000-day validity.
+  * Firebase: Crashlytics enabled, google-services.json for production project.
+  * API: production URL (https://api.waslni.com), not localhost.
+  * Version: 1.0.0 (code=1) for MVP launch.
+- Release checklist: 30+ items across 6 categories — all must be checked before Play Store upload.
+- Next: Phase 30 (Play Store) → Phase 31 (Documentation) → Phase 32 (MVP Launch 🚀).
