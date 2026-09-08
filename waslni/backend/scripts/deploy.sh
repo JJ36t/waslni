@@ -2,9 +2,8 @@
 # deploy.sh — Deploy or update the Waselni backend on the production server.
 #
 # Usage:
-#   ./scripts/deploy.sh              # pull latest + restart
-#   ./scripts/deploy.sh --migrate    # pull latest + run migrations + restart
-#   ./scripts/deploy.sh --build      # rebuild Docker images + restart
+#   ./scripts/deploy.sh v1.0.0           # deploy specific version
+#   ./scripts/deploy.sh v1.0.0 --migrate  # deploy + run migrations
 #
 # This script is meant to be run ON the production server.
 # CI/CD (Phase 27) will SSH into the server and run this script.
@@ -12,44 +11,37 @@
 set -euo pipefail
 
 COMPOSE_FILE="docker-compose.prod.yml"
+VERSION="${1:?Usage: deploy.sh <version> [--migrate]}"
 MIGRATE=false
-BUILD=false
 
-for arg in "$@"; do
-    case $arg in
-        --migrate) MIGRATE=true ;;
-        --build)   BUILD=true ;;
-    esac
-done
-
-cd /opt/waselni
-
-echo "=== Waselni Deploy ==="
-echo "[$(date)] Starting deployment..."
-
-# Pull latest code
-echo "[$(date)] Pulling latest code..."
-git pull origin main
-
-# Rebuild Docker images if requested
-if [ "$BUILD" = true ]; then
-    echo "[$(date)] Building Docker images..."
-    docker compose -f $COMPOSE_FILE build --no-cache backend
+if [ "${2:-}" = "--migrate" ]; then
+    MIGRATE=true
 fi
 
-# Restart services
-echo "[$(date)] Restarting services..."
-docker compose -f $COMPOSE_FILE up -d --remove-orphans
+cd /opt/waselni/backend
+
+echo "=== Waselni Deploy v${VERSION} ==="
+echo "[$(date)] Starting deployment of version ${VERSION}..."
+
+# Pull the specific versioned image
+echo "[$(date)] Pulling Docker image waselni-backend:${VERSION}..."
+export WASLNI_VERSION="${VERSION}"
+docker compose -f $COMPOSE_FILE pull backend
+
+# Restart backend with the new image
+echo "[$(date)] Restarting backend..."
+docker compose -f $COMPOSE_FILE up -d --no-deps --force-recreate backend
 
 # Wait for backend to be healthy
 echo "[$(date)] Waiting for backend health..."
 sleep 10
 for i in $(seq 1 30); do
-    if curl -fsS http://localhost:8000/health > /dev/null 2>&1; then
+    HEALTH=$(docker inspect --format='{{.State.Health.Status}}' waselni-prod-backend 2>/dev/null || echo "starting")
+    if [ "$HEALTH" = "healthy" ]; then
         echo "[$(date)] Backend is healthy."
         break
     fi
-    echo "  ...waiting ($i/30)"
+    echo "  ...waiting ($i/30) status=$HEALTH"
     sleep 2
 done
 
@@ -62,10 +54,19 @@ fi
 
 # Verify
 echo "[$(date)] Verifying deployment..."
-RESPONSE=$(curl -fsS http://localhost:8000/health 2>/dev/null || echo "FAILED")
-echo "  Health check: $RESPONSE"
+HEALTH_RESPONSE=$(docker compose -f $COMPOSE_FILE exec -T backend python -c "
+import urllib.request, json
+resp = urllib.request.urlopen('http://localhost:8000/health')
+print(json.loads(resp.read())['status'])
+" 2>/dev/null || echo "FAILED")
 
-echo "[$(date)] Deployment complete!"
+if [ "$HEALTH_RESPONSE" = "ok" ]; then
+    echo "[$(date)] ✅ Deployment successful! Health: OK"
+else
+    echo "[$(date)] ❌ HEALTH CHECK FAILED: $HEALTH_RESPONSE"
+    exit 1
+fi
+
 echo ""
 echo "Services:"
 docker compose -f $COMPOSE_FILE ps

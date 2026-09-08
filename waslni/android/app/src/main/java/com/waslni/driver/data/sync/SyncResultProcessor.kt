@@ -99,22 +99,25 @@ class SyncResultProcessor @Inject constructor(
     }
 
     private suspend fun handleSuccess(result: SyncOperationResultDto) {
-        // Mark the sync_operation as SYNCED
-        syncDao.updateStatus(result.operationId, "SYNCED")
+        // 1. Apply server_state to the entity FIRST (before marking SYNCED)
+        val serverState = result.serverState
+        val entityId = result.entityId
 
-        // Apply server_state to the entity (if present)
-        val serverState = result.serverState ?: return
-        val entityId = result.entityId ?: return
+        if (serverState != null && entityId != null) {
+            val obj = serverState as? JsonObject
+            if (obj != null) {
+                val hasCustomer = obj["name"] != null && obj["phone"] != null
+                val hasDelivery = obj["customer_id"] != null && obj["status"] != null
 
-        // Detect entity type from the server_state shape
-        val obj = serverState as? JsonObject ?: return
-        val hasCustomer = obj["name"] != null && obj["phone"] != null
-        val hasDelivery = obj["customer_id"] != null && obj["status"] != null
-
-        when {
-            hasCustomer -> applyCustomerServerState(entityId, obj)
-            hasDelivery -> applyDeliveryServerState(entityId, obj)
+                when {
+                    hasCustomer -> applyCustomerServerState(entityId, obj)
+                    hasDelivery -> applyDeliveryServerState(entityId, obj)
+                }
+            }
         }
+
+        // 2. ONLY after server state is applied, mark the operation SYNCED
+        syncDao.updateStatus(result.operationId, "SYNCED")
     }
 
     private suspend fun handleConflict(result: SyncOperationResultDto) {
@@ -158,7 +161,7 @@ class SyncResultProcessor @Inject constructor(
                 ?.let { parseIso8601ToMillis(it) } ?: System.currentTimeMillis(),
             syncState = SyncState.SYNCED.name
         )
-        customerDao.insert(entity)  // REPLACE strategy — overwrites
+        customerDao.upsert(entity)  // safe upsert (no FK cascade)
     }
 
     private suspend fun applyDeliveryServerState(deliveryId: String, obj: JsonObject) {
@@ -178,7 +181,7 @@ class SyncResultProcessor @Inject constructor(
                 ?.let { parseIso8601ToMillis(it) },
             syncState = SyncState.SYNCED.name
         )
-        deliveryDao.insert(entity)  // REPLACE strategy
+        deliveryDao.upsert(entity)  // safe upsert (no FK cascade)
     }
 
     companion object {

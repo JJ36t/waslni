@@ -59,11 +59,14 @@ interface CustomerDao {
 
     // === Mutations ===
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(customer: CustomerEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(customer: CustomerEntity): Long
 
     @Update
     suspend fun update(customer: CustomerEntity)
+
+    @Upsert
+    suspend fun upsert(customer: CustomerEntity)
 
     @Delete
     suspend fun delete(customer: CustomerEntity)

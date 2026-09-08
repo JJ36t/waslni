@@ -47,8 +47,7 @@ jobs:
           echo "MAPBOX_DOWNLOADS_TOKEN=${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}" >> local.properties
 
       - name: Lint (ktlint + detekt)
-        run: ./gradlew ktlintCheck detekt || true
-        continue-on-error: true  # Phase 22+: make this required
+        run: ./gradlew ktlintCheck detekt
 
       - name: Unit Tests
         run: ./gradlew testDebugUnitTest --stacktrace

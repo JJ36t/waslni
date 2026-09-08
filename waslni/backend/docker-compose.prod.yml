@@ -39,9 +39,7 @@ services:
       - waselni-prod
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${DOCKER_REGISTRY:-waselni}/waselni-backend:${WASLNI_VERSION:-latest}
     container_name: waselni-prod-backend
     restart: always
     depends_on:
@@ -54,7 +52,6 @@ services:
       APP_DEBUG: "false"
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-waselni}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-waslni}
     # Gunicorn with 4 Uvicorn worker processes — handles ~1000 concurrent requests.
-    # Adjust workers based on CPU cores: workers = (2 * cores) + 1
     command: >
       gunicorn app.main:app
       --bind 0.0.0.0:8000
@@ -65,12 +62,10 @@ services:
       --max-requests 1000
       --max-requests-jitter 100
       --log-level info
-    volumes:
-      - ./app:/app/app:ro  # read-only mount for hot code updates without rebuild
     networks:
       - waselni-prod
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3

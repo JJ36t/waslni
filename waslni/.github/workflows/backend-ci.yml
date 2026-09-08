@@ -66,8 +66,7 @@ jobs:
         run: black --check .
 
       - name: Type check (mypy)
-        run: mypy app --ignore-missing-imports || true
-        continue-on-error: true
+        run: mypy app --ignore-missing-imports
 
       - name: Run migrations
         run: alembic upgrade head
@@ -83,8 +82,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Security audit (pip-audit)
-        run: pip-audit -r requirements.txt --ignore-vuln GHSA-xxxx || true
-        continue-on-error: true
+        run: pip-audit -r requirements.txt
 
       - name: Build Docker image
         run: docker build -t waselni-backend:ci .

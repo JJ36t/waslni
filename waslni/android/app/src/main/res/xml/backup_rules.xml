@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 
+  Backup rules — allowBackup=false in Manifest, but these rules provide
+  defense-in-depth for device transfer scenarios.
+  
+  EXCLUDE all sensitive data:
+  - waselni_secure_prefs (EncryptedSharedPreferences — tokens)
+  - waselni.db / waselni.db-journal (Room — customer phones, GPS, deliveries)
+  - waselni_sync.preferences_pb (sync timestamp)
+  - waselni_user_prefs.preferences_pb (user settings)
+-->
 <full-backup-content>
-    <include domain="sharedpref" path="."/>
-    <exclude domain="sharedpref" path="encrypted_prefs.xml"/>
-    <exclude domain="database" path="waselni.db"/>
+    <!-- Exclude ALL shared preferences (contains encrypted tokens) -->
+    <exclude domain="sharedpref" path="."/>
+    
+    <!-- Exclude ALL databases (contains customer phones, GPS, delivery history) -->
+    <exclude domain="database" path="."/>
 </full-backup-content>

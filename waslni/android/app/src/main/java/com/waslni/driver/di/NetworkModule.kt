@@ -105,6 +105,10 @@ object NetworkModule {
         if (BuildConfig.DEBUG) {
             val logging = HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.HEADERS
+                // Redact sensitive headers so tokens never appear in Logcat
+                redactHeader("Authorization")
+                redactHeader("Cookie")
+                redactHeader("Set-Cookie")
             }
             builder.addInterceptor(logging)
         }

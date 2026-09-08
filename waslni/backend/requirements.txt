@@ -13,7 +13,7 @@ pydantic==2.9.2
 pydantic-settings==2.5.2
 
 # Auth
-python-jose[cryptography]==3.3.0
+python-jose[cryptography]==3.4.0
 passlib[argon2]==1.7.4
 bcrypt==4.2.0  # for any legacy bcrypt hashes; argon2 is the default
 

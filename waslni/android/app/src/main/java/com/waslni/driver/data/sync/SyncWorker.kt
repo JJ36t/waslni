@@ -62,8 +62,9 @@ class SyncWorker @AssistedInject constructor(
         val now = System.currentTimeMillis()
         syncPreferences.setLastSyncAttemptAt(now)
 
-        // 1. Read pending operations
-        val pendingOps = syncDao.getPending()
+        // 1. Read pending operations — batch in groups of MAX_BATCH_SIZE
+        // to avoid exceeding the backend's 500-op limit
+        val pendingOps = syncDao.getPendingBatch(MAX_BATCH_SIZE)
         if (pendingOps.isEmpty()) {
             // Nothing to upload — still apply any server_changes from a fresh
             // /sync call (so multi-device changes propagate even when we have
@@ -101,14 +102,22 @@ class SyncWorker @AssistedInject constructor(
         // 4. Process upload-direction results
         val stats = resultProcessor.processResults(body.results)
 
-        // 5. Apply download-direction changes
+        // 5. Apply download-direction changes — if ANY change fails, do NOT advance watermark
+        var allChangesApplied = true
         if (body.serverChanges.isNotEmpty()) {
-            serverChangeApplier.applyChanges(body.serverChanges)
+            val applied = serverChangeApplier.applyChanges(body.serverChanges)
+            if (applied < body.serverChanges.size) {
+                // Some changes failed to apply — do NOT advance watermark
+                // so they're re-requested on the next sync attempt
+                allChangesApplied = false
+            }
         }
 
-        // 6. Persist the new watermark
-        val newTimestamp = parseIso8601ToMillis(body.latestSyncTimestamp)
-        syncPreferences.setLatestSyncTimestamp(newTimestamp)
+        // 6. Persist the new watermark ONLY if all changes applied successfully
+        if (allChangesApplied) {
+            val newTimestamp = parseIso8601ToMillis(body.latestSyncTimestamp)
+            syncPreferences.setLatestSyncTimestamp(newTimestamp)
+        }
         syncPreferences.setLastSyncSuccessAt(System.currentTimeMillis())
 
         // 7. Periodic cleanup of old SYNCED rows
@@ -187,5 +196,6 @@ class SyncWorker @AssistedInject constructor(
     companion object {
         const val WORK_NAME = "waselni_sync"
         const val CLEANUP_AGE_MILLIS = 7 * 24 * 60 * 60 * 1000L  // 7 days
+        const val MAX_BATCH_SIZE = 450  // backend limit is 500, leave margin
     }
 }

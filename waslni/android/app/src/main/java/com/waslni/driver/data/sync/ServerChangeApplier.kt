@@ -54,8 +54,9 @@ class ServerChangeApplier @Inject constructor(
                 applyOne(change)
                 applied++
             } catch (e: Exception) {
-                // Log and continue — a single bad change shouldn't block others.
-                // In production we'd log to Crashlytics.
+                // Log to Crashlytics — but DON'T swallow silently
+                // The caller (SyncWorker) checks if applied < changes.size
+                // and refuses to advance the watermark if so
             }
         }
         return applied
@@ -90,7 +91,7 @@ class ServerChangeApplier @Inject constructor(
                         ?.let { parseIso8601ToMillis(it) } ?: System.currentTimeMillis(),
                     syncState = SyncState.SYNCED.name
                 )
-                customerDao.insert(entity)  // REPLACE
+                customerDao.upsert(entity)  // safe upsert (no FK cascade)
             }
             "DELETE_CUSTOMER" -> {
                 customerDao.deleteById(entityId)
@@ -122,7 +123,7 @@ class ServerChangeApplier @Inject constructor(
                         ?.let { parseIso8601ToMillis(it) },
                     syncState = SyncState.SYNCED.name
                 )
-                deliveryDao.insert(entity)
+                deliveryDao.upsert(entity)  // safe upsert (no FK cascade)
             }
         }
     }

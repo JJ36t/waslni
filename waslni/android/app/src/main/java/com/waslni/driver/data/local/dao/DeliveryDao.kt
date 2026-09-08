@@ -67,8 +67,11 @@ interface DeliveryDao {
 
     // === Mutations ===
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(delivery: DeliveryEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(delivery: DeliveryEntity): Long
+
+    @Upsert
+    suspend fun upsert(delivery: DeliveryEntity)
 
     @Update
     suspend fun update(delivery: DeliveryEntity)

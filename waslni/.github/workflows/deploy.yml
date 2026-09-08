@@ -1,5 +1,5 @@
 # Deploy — runs when a tag v* is pushed.
-# Builds the Docker image → pushes to registry → SSH into server → deploy.
+# Builds the Docker image → pushes to registry → SSH into server → deploy specific version.
 
 name: Deploy to Production
 
@@ -46,12 +46,10 @@ jobs:
           key: ${{ secrets.PROD_SERVER_SSH_KEY }}
           script: |
             cd /opt/waselni/backend
-            git pull origin main
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend
-            sleep 10
-            docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
-            curl -fsS http://localhost:8000/health || echo "HEALTH CHECK FAILED!"
+            export DOCKER_REGISTRY=${{ secrets.DOCKER_REGISTRY }}
+            export WASLNI_VERSION=${{ steps.version.outputs.VERSION }}
+            ./scripts/deploy.sh ${{ steps.version.outputs.VERSION }} --migrate
+            # Exit code from deploy.sh propagates — if health check fails, CI fails
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -83,9 +81,13 @@ jobs:
           echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" > local.properties
           echo "MAPBOX_DOWNLOADS_TOKEN=${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}" >> local.properties
 
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.WASLNI_KEYSTORE_BASE64 }}" | base64 -d > /tmp/waselni-release.jks
+
       - name: Build Release AAB
         env:
-          WASLNI_KEYSTORE_FILE: ${{ secrets.WASLNI_KEYSTORE_FILE }}
+          WASLNI_KEYSTORE_FILE: /tmp/waselni-release.jks
           WASLNI_KEYSTORE_PASSWORD: ${{ secrets.WASLNI_KEYSTORE_PASSWORD }}
           WASLNI_KEY_ALIAS: ${{ secrets.WASLNI_KEY_ALIAS }}
           WASLNI_KEY_PASSWORD: ${{ secrets.WASLNI_KEY_PASSWORD }}
@@ -103,3 +105,7 @@ jobs:
         with:
           files: android/app/build/outputs/bundle/release/app-release.aab
           tag_name: ${{ github.ref_name }}
+
+      - name: Cleanup keystore
+        if: always()
+        run: rm -f /tmp/waselni-release.jks

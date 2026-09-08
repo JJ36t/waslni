@@ -77,7 +77,8 @@ class ArrivalDetector @Inject constructor(
             val smoothedDistance = recentDistances.average()
 
             val isArrived = smoothedDistance <= arrivalRadiusMeters &&
-                recentDistances.size >= MIN_READINGS_BEFORE_ARRIVAL
+                recentDistances.size >= MIN_READINGS_BEFORE_ARRIVAL &&
+                location.accuracy <= MAX_ACCEPTABLE_ACCURACY
 
             ArrivalState(
                 isArrived = isArrived,
@@ -98,6 +99,9 @@ class ArrivalDetector @Inject constructor(
 
         /** Minimum readings before we trust an arrival (avoids false positive on first reading). */
         const val MIN_READINGS_BEFORE_ARRIVAL = 2
+
+        /** Max GPS accuracy (in meters) for an arrival to be trusted. Readings worse than this are ignored. */
+        const val MAX_ACCEPTABLE_ACCURACY = 50f
 
         /** Location update interval during arrival detection — 5 seconds. */
         const val NAVIGATION_UPDATE_INTERVAL_MS = 5_000L

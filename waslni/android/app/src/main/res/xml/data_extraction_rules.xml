@@ -1,12 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Data extraction rules for Android 12+ device transfer.
+  
+  Since allowBackup=false, device transfer is also disabled by default.
+  These rules provide defense-in-depth: even if backup is somehow enabled,
+  sensitive data is excluded.
+-->
 <data-extraction-rules>
     <cloud-backup>
-        <include domain="sharedpref" path="."/>
-        <exclude domain="sharedpref" path="encrypted_prefs.xml"/>
-        <exclude domain="database" path="waselni.db"/>
+        <!-- Exclude ALL shared preferences (tokens) -->
+        <exclude domain="sharedpref" path="."/>
+        <!-- Exclude ALL databases (customer data) -->
+        <exclude domain="database" path="."/>
     </cloud-backup>
     <device-transfer>
-        <include domain="sharedpref" path="."/>
-        <include domain="database" path="waselni.db"/>
+        <!-- Exclude ALL shared preferences (tokens) -->
+        <exclude domain="sharedpref" path="."/>
+        <!-- Exclude ALL databases (customer data) -->
+        <exclude domain="database" path="."/>
     </device-transfer>
 </data-extraction-rules>

@@ -45,9 +45,9 @@ USER waselni
 
 EXPOSE 8000
 
-# Healthcheck hits the /health endpoint
+# Healthcheck — uses Python (curl not available in runtime image)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:8000/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 # Uvicorn with 4 workers — tune via env in docker-compose for prod
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
