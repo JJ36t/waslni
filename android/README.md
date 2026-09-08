@@ -67,3 +67,4 @@ Project skeleton with:
 - Compose + Material 3 + Hilt + Navigation
 - Theme (Dark/Light) + Arabic RTL
 - Placeholder screens for all main destinations
+

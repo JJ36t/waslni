@@ -146,3 +146,4 @@ What's next (Phase 8):
 - AuthService
 - get_current_user dependency
 - Rate limiting on /auth/login
+
