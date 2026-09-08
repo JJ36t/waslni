@@ -1321,3 +1321,58 @@ Stage Summary:
   * Logout confirmation dialog: prevents accidental logout (which would clear all local data).
   * App version hardcoded as "1.0.0" for now — Phase 29 will read it from BuildConfig.versionName.
 - Next: Phase 20 (UI Polish) — review all screens for RTL, add animations, skeletons, empty/error states, test on different screen sizes. Then Phase 21 (Security Hardening) → Phase 22 (Testing) → Phase 23 (Performance) → Phase 24 (Real Device Testing) → ... → Phase 32 (MVP Launch).
+
+---
+Task ID: phase-20
+Agent: main
+Task: Phase 20 — UI Polish: Wire ThemeMode from Settings to WaselniTheme, add reusable StateView (Loading/Empty/Error), SkeletonBox + SkeletonList loading placeholders, WaselButton with press animation, and apply skeleton loading to History screen.
+
+Work Log:
+- Updated presentation/MainActivity.kt:
+  * Injected UserPreferences via @Inject (field injection on @AndroidEntryPoint activity).
+  * Collects userPreferences.themeMode as StateFlow → maps to darkTheme boolean:
+    - SYSTEM → isSystemInDarkTheme()
+    - LIGHT → false
+    - DARK → true
+  * Passes darkTheme to WaselniTheme(darkTheme=...) so the Settings toggle takes effect immediately.
+  * Uses collectAsStateWithLifecycle for lifecycle-aware collection.
+- Created core/ui/components/StateView.kt:
+  * UiState<T> sealed interface: Loading, Success<T>(data), Empty(message?), Error(message, onRetry?).
+  * StateView<T>(state, content) — single composable that renders the right view based on state.
+  * LoadingView — centered CircularProgressIndicator.
+  * EmptyView — optional icon + message, centered.
+  * ErrorView — warning emoji + error message + optional retry button.
+  * Eliminates repetitive if/when blocks in every screen.
+- Created core/ui/components/SkeletonBox.kt:
+  * SkeletonBox — shimmering placeholder box. Alpha animates 0.3 → 1.0 → 0.3 in 1.2s (infiniteRepeatable, LinearEasing, Reverse mode). Uses surfaceVariant color for subtle contrast.
+  * SkeletonListItem — mimics CustomerRow layout: 40dp circle avatar + two text lines (60% + 40% width). Used as a loading placeholder for list-based screens.
+  * SkeletonList(itemCount=8) — renders N SkeletonListItem with dividers. Full-screen loading placeholder.
+- Created core/ui/components/WaselButton.kt:
+  * App-standard button with scale-down animation on press (0.96x, 100ms tween).
+  * Optional leading icon with 8dp spacing.
+  * Semi-bold text for readability.
+  * isSecondary parameter → uses secondary/secondaryContainer colors.
+  * Uses MutableInteractionSource + collectIsPressedAsState for press detection.
+  * Replaces raw Button across the app for consistent tactile feedback.
+- Updated presentation/delivery/HistoryScreen.kt:
+  * Replaced CircularProgressIndicator loading state with SkeletonList(itemCount=6).
+  * Skeleton mimics the actual delivery row layout so the transition to real data is seamless.
+- Wrote 1 test file (8 test methods in 2 test classes):
+  * UiStateTest (5 tests) — Loading has no data, Success carries data, Empty has nullable message, Error carries message + optional retry, all states are distinct types.
+  * ThemeModeIntegrationTest (3 tests) — SYSTEM is first (default), DARK/LIGHT/SYSTEM all distinct, valueOf round-trips all values.
+
+Stage Summary:
+- Phase 20 (UI Polish) complete.
+- 4 new Kotlin main files + 1 new test file, 1 updated file (MainActivity) on top of Phase 19.
+- Total Android: 144 Kotlin main files + 30 test files = 174 Kotlin files.
+- UI polish components:
+  * core/ui/components/StateView — unified Loading/Empty/Error/Content rendering
+  * core/ui/components/SkeletonBox + SkeletonListItem + SkeletonList — shimmering loading placeholders
+  * core/ui/components/WaselButton — animated press feedback, app-standard button
+- Key design decisions:
+  * ThemeMode wiring: MainActivity collects the user's theme preference and maps SYSTEM → isSystemInDarkTheme(), LIGHT → false, DARK → true. The theme toggle in Settings now works — switching to DARK immediately darkens the app without restart.
+  * StateView as sealed interface: each screen can express its state as a single UiState value, and StateView handles the rendering. This eliminates the scattered isLoading/isError/isEmpty booleans that lead to impossible states (e.g. isLoading=true AND isError=true).
+  * Skeleton loading: SkeletonList mimics the actual row layout (circle avatar + two text lines) so the loading-to-data transition is seamless — no layout jump. The shimmer animation (alpha 0.3↔1.0) is subtle but clearly communicates "loading".
+  * WaselButton scale animation: 0.96x scale on press, 100ms — just enough tactile feedback to feel responsive without being distracting. Uses animateFloatAsState for smooth transition.
+  * ErrorView includes optional retry button: the onRetry callback is passed through UiState.Error, so the StateView can render the retry button without the screen needing to handle it separately.
+- Next: Phase 21 (Security Hardening) → Phase 22 (Testing) → Phase 23 (Performance) → Phase 24 (Real Device) → ... → Phase 32 (MVP Launch).

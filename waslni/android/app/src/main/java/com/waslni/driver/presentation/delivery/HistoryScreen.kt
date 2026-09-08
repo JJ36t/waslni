@@ -72,12 +72,8 @@ fun HistoryScreen(
 
         when {
             state.isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                // Skeleton placeholder while loading
+                com.waslni.driver.core.ui.components.SkeletonList(itemCount = 6)
             }
             state.isEmpty -> {
                 EmptyHistoryState()
