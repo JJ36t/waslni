@@ -72,6 +72,10 @@ class Delivery(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     # === Relationships ===
     customer: Mapped["Customer"] = relationship(lazy="selectin")

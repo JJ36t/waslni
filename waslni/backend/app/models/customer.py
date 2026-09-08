@@ -63,6 +63,10 @@ class Customer(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     __table_args__ = (
         # Composite unique: one (driver, phone) pair
