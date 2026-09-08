@@ -61,6 +61,22 @@ class RefreshTokenRepository:
             .values(revoked=True)
         )
 
+    async def revoke_atomically(self, token_id: UUID) -> bool:
+        """Atomically revoke a token — returns True if the token was NOT already revoked.
+
+        Uses UPDATE ... WHERE revoked = false RETURNING to prevent race conditions.
+        If two requests try to revoke the same token simultaneously, only one succeeds.
+        """
+        from sqlalchemy import update as sql_update
+
+        result = await self.session.execute(
+            sql_update(RefreshToken)
+            .where(RefreshToken.id == token_id, RefreshToken.revoked.is_(False))
+            .values(revoked=True)
+            .returning(RefreshToken.id)
+        )
+        return result.scalar_one_or_none() is not None
+
     async def revoke_all_for_user(self, user_id: UUID) -> int:
         """Revoke all refresh tokens for a user (logout-all-devices).
 

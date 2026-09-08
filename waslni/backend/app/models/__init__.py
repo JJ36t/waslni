@@ -12,6 +12,7 @@ from app.models.customer import Customer
 from app.models.delivery import Delivery
 from app.models.idempotency_key import IdempotencyKey
 from app.models.refresh_token import RefreshToken
+from app.models.sync_tombstone import SyncTombstone
 from app.models.user import User
 
 __all__ = [
@@ -21,5 +22,6 @@ __all__ = [
     "Delivery",
     "IdempotencyKey",
     "RefreshToken",
+    "SyncTombstone",
     "User",
 ]

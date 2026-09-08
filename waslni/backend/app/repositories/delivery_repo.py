@@ -94,19 +94,33 @@ class DeliveryRepository:
         delivery_id: UUID,
         driver_id: UUID,
         new_status: str,
+        expected_current_status: str | None = None,
         **extra_fields,
     ) -> Delivery | None:
-        """Update a delivery's status + optional timestamp fields.
+        """Conditionally update a delivery's status.
 
-        `extra_fields` can include started_at, arrived_at, completed_at,
-        cancelled_at — set by the service based on the new status.
+        If `expected_current_status` is provided, the UPDATE only succeeds if the
+        current status matches. This prevents race conditions where two concurrent
+        requests try to transition the same delivery.
+
+        Returns the updated delivery (with customer eager-loaded), or None if the
+        conditional update didn't match any row (meaning the status changed
+        between read and write — caller should treat as INVALID_STATE_TRANSITION).
         """
         from sqlalchemy import update as sql_update
 
         values = {"status": new_status, **extra_fields}
+
+        conditions = [
+            Delivery.id == delivery_id,
+            Delivery.driver_id == driver_id,
+        ]
+        if expected_current_status is not None:
+            conditions.append(Delivery.status == expected_current_status)
+
         result = await self.session.execute(
             sql_update(Delivery)
-            .where(Delivery.id == delivery_id, Delivery.driver_id == driver_id)
+            .where(*conditions)
             .values(**values)
             .returning(Delivery)
         )

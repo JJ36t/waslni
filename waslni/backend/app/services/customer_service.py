@@ -172,7 +172,7 @@ class CustomerService:
         driver_id: UUID,
         ip_address: str | None = None,
     ) -> None:
-        """Delete a customer.
+        """Soft-delete a customer + create tombstone for multi-device sync.
 
         Raises:
             NotFoundError: customer doesn't exist or belongs to another driver.
@@ -188,7 +188,17 @@ class CustomerService:
                 details={"customer_id": str(customer_id)},
             )
 
-        await self.customers.delete(customer_id, driver_id)
+        # Soft-delete (sets deleted_at + updated_at)
+        await self.customers.soft_delete(customer_id, driver_id)
+
+        # Create tombstone for multi-device sync
+        from app.models import SyncTombstone
+        tombstone = SyncTombstone(
+            driver_id=driver_id,
+            entity_id=customer_id,
+            entity_type="CUSTOMER",
+        )
+        self.session.add(tombstone)
 
         await self.audit.record(
             action=AUDIT_CUSTOMER_DELETED,

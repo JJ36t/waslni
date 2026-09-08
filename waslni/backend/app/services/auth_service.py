@@ -188,8 +188,12 @@ class AuthService:
                 code=ErrorCodes.REFRESH_TOKEN_INVALID,
                 message="Refresh token not recognized",
             )
-        if stored.revoked:
-            # Possible token theft — revoke all of this user's tokens as a precaution.
+
+        # 3. Atomically revoke the old token — prevents race condition where
+        #    two concurrent refresh requests both see revoked=false.
+        was_revoked = await self.refresh_tokens.revoke_atomically(stored.id)
+        if not was_revoked:
+            # Token was already revoked by a concurrent request → possible theft
             await self.refresh_tokens.revoke_all_for_user(stored.user_id)
             await self.audit.record(
                 action=AUDIT_TOKEN_REVOKED,
@@ -202,7 +206,7 @@ class AuthService:
                 message="Refresh token has been revoked",
             )
 
-        # 3. Load the user (must still exist + be active)
+        # 4. Load the user (must still exist + be active)
         user = await self.users.get_by_id(stored.user_id)
         if user is None:
             raise UnauthorizedError(
@@ -215,9 +219,7 @@ class AuthService:
                 message="This account has been disabled",
             )
 
-        # 4. Rotate: revoke the old refresh token, issue a new pair
-        await self.refresh_tokens.revoke(stored.id)
-
+        # 5. Issue new tokens (old token was already atomically revoked in step 3)
         new_access = create_access_token(user_id=user.id, role=user.role)
         new_refresh_jti = uuid4()
         new_refresh = create_refresh_token(user_id=user.id, jti=new_refresh_jti)

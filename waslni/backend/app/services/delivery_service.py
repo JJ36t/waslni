@@ -219,7 +219,7 @@ class DeliveryService:
                 },
             )
 
-        # === Apply the transition ===
+        # === Apply the transition (conditional UPDATE prevents race conditions) ===
         now = datetime.now(timezone.utc)
         extra_fields: dict = {}
         audit_action: str
@@ -237,15 +237,27 @@ class DeliveryService:
             extra_fields["started_at"] = now
             audit_action = AUDIT_DELIVERY_STARTED
         else:
-            # ASSIGNED — no timestamp to set
-            audit_action = AUDIT_DELIVERY_STARTED  # generic
+            audit_action = AUDIT_DELIVERY_STARTED
 
+        # Conditional UPDATE: only succeeds if status hasn't changed since we read it
         updated = await self.deliveries.update_status(
             delivery_id=delivery_id,
             driver_id=driver_id,
             new_status=target.value,
+            expected_current_status=current.value,  # ← race condition guard
             **extra_fields,
         )
+
+        if updated is None:
+            # Status changed between our read and the UPDATE — race condition
+            raise ConflictError(
+                code=ErrorCodes.INVALID_STATE_TRANSITION,
+                message=f"Delivery status changed concurrently — please retry",
+                details={
+                    "expected_status": current.value,
+                    "target_status": target.value,
+                },
+            )
 
         await self.audit.record(
             action=audit_action,

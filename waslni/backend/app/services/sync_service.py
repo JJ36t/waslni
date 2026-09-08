@@ -225,7 +225,7 @@ class SyncService:
             )
 
         elif op.operation == SyncOperationType.UPDATE_CUSTOMER:
-            # Conflict check: latest-write-wins based on updated_at
+            # Atomic conflict check + update in a single SQL statement
             entity_id = UUID(op.payload["id"])
             existing = await self.customers_repo.get_by_id(entity_id, driver_id)
             if existing is None:
@@ -234,51 +234,99 @@ class SyncService:
                     message="Customer not found",
                 )
 
-            # Parse updated_at from payload (ISO 8601 string from Android)
+            # Parse updated_at from payload for optimistic concurrency
             payload_updated_str = op.payload.get("updated_at")
+            client_updated_at = None
             if payload_updated_str:
-                payload_updated = _parse_iso8601(payload_updated_str)
-                if existing.updated_at > payload_updated:
-                    # Server has newer version → CONFLICT
-                    return SyncOperationResult(
-                        operation_id=op.id,
-                        status=SyncResultStatus.CONFLICT,
-                        entity_id=str(entity_id),
-                        server_state=CustomerResponse.model_validate(existing).model_dump(mode="json"),
-                        error={
-                            "code": ErrorCodes.STALE_UPDATE,
-                            "message": "Server has a newer version of this customer",
-                        },
-                    )
+                client_updated_at = _parse_iso8601(payload_updated_str)
 
-            # Apply the update (only name/phone/lat/lng/accuracy — not id/driver_id/timestamps)
-            update_data = CustomerUpdate(
-                name=op.payload.get("name"),
-                phone=op.payload.get("phone"),
-                latitude=op.payload.get("latitude"),
-                longitude=op.payload.get("longitude"),
-                accuracy=op.payload.get("accuracy"),
-            )
-            result = await service.update(
+            # Build update fields
+            update_fields = {}
+            for key in ("name", "phone", "latitude", "longitude", "accuracy"):
+                if key in op.payload and op.payload[key] is not None:
+                    update_fields[key] = op.payload[key]
+
+            if not update_fields:
+                # No fields to update — return current state as success
+                return SyncOperationResult(
+                    operation_id=op.id,
+                    status=SyncResultStatus.SUCCESS,
+                    entity_id=str(entity_id),
+                    server_state=CustomerResponse.model_validate(existing).model_dump(mode="json"),
+                )
+
+            # Atomic conditional UPDATE — only succeeds if server's updated_at <= client's
+            updated = await self.customers_repo.update_fields_atomic(
                 customer_id=entity_id,
                 driver_id=driver_id,
-                data=update_data,
+                client_updated_at=client_updated_at,
+                **update_fields,
+            )
+
+            if updated is None:
+                # Server has a newer version → CONFLICT
+                refreshed = await self.customers_repo.get_by_id(entity_id, driver_id)
+                server_state = None
+                if refreshed is not None:
+                    server_state = CustomerResponse.model_validate(refreshed).model_dump(mode="json")
+                return SyncOperationResult(
+                    operation_id=op.id,
+                    status=SyncResultStatus.CONFLICT,
+                    entity_id=str(entity_id),
+                    server_state=server_state,
+                    error={
+                        "code": ErrorCodes.STALE_UPDATE,
+                        "message": "Server has a newer version of this customer",
+                    },
+                )
+
+            # Audit log
+            await self.audit_repo.record(
+                action="UPDATE_CUSTOMER",
+                user_id=driver_id,
+                entity_type="CUSTOMER",
+                entity_id=entity_id,
                 ip_address=ip_address,
             )
+
             return SyncOperationResult(
                 operation_id=op.id,
                 status=SyncResultStatus.SUCCESS,
-                entity_id=str(result.id),
-                server_state=result.model_dump(mode="json"),
+                entity_id=str(updated.id),
+                server_state=CustomerResponse.model_validate(updated).model_dump(mode="json"),
             )
 
         elif op.operation == SyncOperationType.DELETE_CUSTOMER:
             entity_id = UUID(op.payload["id"])
-            await service.delete(
-                customer_id=entity_id,
+
+            # Use soft-delete + tombstone for multi-device sync
+            deleted = await self.customers_repo.soft_delete(entity_id, driver_id)
+
+            if not deleted:
+                # Already deleted (or not found) → IGNORED
+                return SyncOperationResult(
+                    operation_id=op.id,
+                    status=SyncResultStatus.IGNORED,
+                    entity_id=str(entity_id),
+                )
+
+            # Create tombstone for multi-device sync
+            from app.models import SyncTombstone
+            tombstone = SyncTombstone(
                 driver_id=driver_id,
+                entity_id=entity_id,
+                entity_type="CUSTOMER",
+            )
+            self.session.add(tombstone)
+
+            await self.audit_repo.record(
+                action="DELETE_CUSTOMER",
+                user_id=driver_id,
+                entity_type="CUSTOMER",
+                entity_id=entity_id,
                 ip_address=ip_address,
             )
+
             return SyncOperationResult(
                 operation_id=op.id,
                 status=SyncResultStatus.SUCCESS,
@@ -402,11 +450,12 @@ class SyncService:
 
         changes: list[ServerChange] = []
 
-        # Customers modified since `since`
+        # Customers modified since `since` (exclude soft-deleted)
         cust_result = await self.session.execute(
             select(Customer).where(
                 Customer.driver_id == driver_id,
                 Customer.updated_at > since,
+                Customer.deleted_at.is_(None),
             )
         )
         for c in cust_result.scalars().all():
@@ -421,6 +470,28 @@ class SyncService:
                 entity_id=c.id,
                 operation=op,
                 payload=CustomerResponse.model_validate(c).model_dump(mode="json"),
+            ))
+
+        # Tombstones — deletions since `since` (for multi-device sync)
+        from app.models import SyncTombstone
+        tomb_result = await self.session.execute(
+            select(SyncTombstone).where(
+                SyncTombstone.driver_id == driver_id,
+                SyncTombstone.deleted_at > since,
+            )
+        )
+        for t in tomb_result.scalars().all():
+            entity_type = SyncEntityType.CUSTOMER if t.entity_type == "CUSTOMER" else SyncEntityType.DELIVERY
+            op = (
+                SyncOperationType.DELETE_CUSTOMER
+                if t.entity_type == "CUSTOMER"
+                else SyncOperationType.UPDATE_DELIVERY  # delivery deletions use UPDATE
+            )
+            changes.append(ServerChange(
+                entity_type=entity_type,
+                entity_id=t.entity_id,
+                operation=op,
+                payload={"id": str(t.entity_id), "deleted": True},
             ))
 
         # Deliveries modified since `since`

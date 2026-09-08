@@ -94,7 +94,6 @@ class CustomerRepository:
         self, customer_id: UUID, driver_id: UUID, **fields
     ) -> Customer | None:
         """Update specific fields on a customer (scoped to driver_id)."""
-        # Bump updated_at server-side
         from datetime import datetime, timezone
         fields["updated_at"] = datetime.now(timezone.utc)
 
@@ -105,6 +104,55 @@ class CustomerRepository:
             .returning(Customer)
         )
         return result.scalar_one_or_none()
+
+    async def update_fields_atomic(
+        self,
+        customer_id: UUID,
+        driver_id: UUID,
+        client_updated_at: datetime | None = None,
+        **fields,
+    ) -> Customer | None:
+        """Atomically update a customer with optimistic concurrency control.
+
+        If `client_updated_at` is provided, the UPDATE only succeeds if the server's
+        `updated_at` is <= the client's value. This prevents stale writes in multi-device
+        sync — if Device B's write arrives after Device A's, Device B gets a conflict.
+
+        Returns the updated customer, or None if the conditional update didn't match.
+        """
+        from datetime import datetime, timezone
+        fields["updated_at"] = datetime.now(timezone.utc)
+
+        conditions = [
+            Customer.id == customer_id,
+            Customer.driver_id == driver_id,
+        ]
+        if client_updated_at is not None:
+            conditions.append(Customer.updated_at <= client_updated_at)
+
+        result = await self.session.execute(
+            update(Customer)
+            .where(*conditions)
+            .values(**fields)
+            .returning(Customer)
+        )
+        return result.scalar_one_or_none()
+
+    async def soft_delete(self, customer_id: UUID, driver_id: UUID) -> bool:
+        """Soft-delete a customer (sets deleted_at). Returns True if row was affected."""
+        from datetime import datetime, timezone
+
+        result = await self.session.execute(
+            update(Customer)
+            .where(
+                Customer.id == customer_id,
+                Customer.driver_id == driver_id,
+                Customer.deleted_at.is_(None),
+            )
+            .values(deleted_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc))
+            .returning(Customer.id)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def delete(self, customer_id: UUID, driver_id: UUID) -> bool:
         """Delete a customer (scoped). Returns True if a row was deleted."""
