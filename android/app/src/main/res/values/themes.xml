@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Base theme — used as the parent for the Splash screen theme.
+        The actual Compose UI doesn't use Material 3 XML theme; this is only
+        for the system splash + window background before Compose takes over.
+    -->
+    <style name="Theme.Waselni" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/background_light</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <!-- Splash screen theme (Android 12+ SplashScreen API) -->
+    <style name="Theme.Waselni.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_primary</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="windowSplashScreenAnimationDuration">200</item>
+        <item name="postSplashScreenTheme">@style/Theme.Waselni</item>
+    </style>
+</resources>

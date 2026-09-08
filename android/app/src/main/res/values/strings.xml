@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- English fallback strings (default). Arabic is in values-ar/. -->
+
+    <!-- App -->
+    <string name="app_name">Waselni</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">Map</string>
+    <string name="nav_customers">Customers</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Login -->
+    <string name="login_subtitle">Sign in to continue</string>
+    <string name="username">Username</string>
+    <string name="password">Password</string>
+    <string name="login_button">Sign in</string>
+    <string name="toggle_password_visibility">Show/hide password</string>
+
+    <!-- Home -->
+    <string name="search_customer_hint">Search by name or phone</string>
+    <string name="map_placeholder">Map will appear here</string>
+    <string name="add_customer">Add customer</string>
+
+    <!-- Customer -->
+    <string name="add_customer_title">Add new customer</string>
+    <string name="customer_name">Customer name</string>
+    <string name="customer_phone">Phone number</string>
+    <string name="customer_location">Location</string>
+    <string name="customers_empty">No customers yet</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- History -->
+    <string name="history_empty">No deliveries yet</string>
+
+    <!-- Common -->
+    <string name="retry">Retry</string>
+    <string name="loading">Loading…</string>
+    <string name="error_generic">An unexpected error occurred</string>
+
+    <!-- Location -->
+    <string name="location_rationale_title">Location permission needed</string>
+    <string name="location_rationale_message">We need your location to determine your current position and calculate the route to your customer. We never share your location with third parties.</string>
+    <string name="location_rationale_confirm">Allow</string>
+    <string name="location_permission_denied_title">Location permission denied</string>
+    <string name="location_permission_denied_message">The app cannot function without location permission. You can grant it from Settings.</string>
+    <string name="location_permission_open_settings">Open Settings</string>
+    <string name="location_permission_dismiss">Dismiss</string>
+    <string name="gps_disabled_title">GPS is disabled</string>
+    <string name="gps_disabled_message">Please enable location services in your device settings so we can determine your position.</string>
+    <string name="gps_disabled_open_settings">Open location settings</string>
+    <string name="location_timeout_title">Couldn\'t determine location</string>
+    <string name="location_timeout_message">Getting a location fix took too long. Make sure you\'re in an open area and try again.</string>
+    <string name="location_unknown_error">Couldn\'t get your location. Please try again.</string>
+
+    <!-- Location capture -->
+    <string name="capture_location">Capture location</string>
+    <string name="capturing_location">Getting your location…</string>
+    <string name="location_accuracy_label">Accuracy</string>
+    <string name="location_accuracy_excellent">Excellent</string>
+    <string name="location_accuracy_good">Good</string>
+    <string name="location_accuracy_poor">Poor</string>
+    <string name="location_accuracy_poor_message">Location accuracy is low (%1$.1fm). Wait a moment and try again.</string>
+    <string name="location_capture_again">Re-capture</string>
+    <string name="location_confirm">Confirm location</string>
+
+    <!-- Map / Home -->
+    <string name="map_driver_location">Your current location</string>
+    <string name="map_customer_marker">Customer</string>
+    <string name="map_active_marker">Active delivery</string>
+    <string name="map_no_customers_hint">Add a new customer to get started</string>
+    <string name="customer_call">Call</string>
+    <string name="customer_start_delivery">Start delivery</string>
+    <string name="customer_view_details">Details</string>
+
+    <!-- Customer Details -->
+    <string name="customer_details_title">Customer details</string>
+    <string name="customer_gps_accuracy">GPS accuracy</string>
+    <string name="customer_last_updated">Last updated</string>
+    <string name="customer_edit">Edit</string>
+    <string name="customer_delete">Delete</string>
+    <string name="customer_delete_confirm_title">Delete customer</string>
+    <string name="customer_delete_confirm_message">Delete \"%1$s\"? This action cannot be undone.</string>
+    <string name="customer_delete_button">Delete</string>
+    <string name="customer_loading">Loading…</string>
+    <string name="customer_not_found">Customer not found</string>
+
+    <!-- Edit Customer -->
+    <string name="edit_customer_title">Edit customer</string>
+    <string name="update_location">Update location</string>
+
+    <!-- Sync status -->
+    <string name="sync_pending_count">%1$d pending sync</string>
+    <string name="sync_online">Online</string>
+    <string name="sync_offline">Offline</string>
+    <string name="sync_in_progress">Syncing…</string>
+
+    <!-- Active Delivery -->
+    <string name="active_delivery_title">Active delivery</string>
+    <string name="delivery_status_on_the_way">On the way</string>
+    <string name="delivery_status_arrived">Arrived</string>
+    <string name="delivery_status_delivered">Delivered</string>
+    <string name="delivery_status_cancelled">Cancelled</string>
+    <string name="delivery_mark_arrived">I arrived at the customer</string>
+    <string name="delivery_complete">Complete delivery</string>
+    <string name="delivery_cancel">Cancel delivery</string>
+    <string name="delivery_cancel_confirm">Cancel this delivery?</string>
+    <string name="delivery_started_at">Started at: %1$s</string>
+    <string name="delivery_arrived_at">Arrived at: %1$s</string>
+    <string name="delivery_completed_at">Completed at: %1$s</string>
+    <string name="delivery_not_found">Delivery not found</string>
+    <string name="delivery_finished">Delivery finished</string>
+
+    <!-- Home active delivery banner -->
+    <string name="active_delivery_banner">You have an active delivery</string>
+    <string name="active_delivery_continue">Continue delivery</string>
+
+    <!-- Routing / ETA -->
+    <string name="route_calculating">Calculating route…</string>
+    <string name="route_distance">Distance</string>
+    <string name="route_eta">ETA</string>
+    <string name="route_fallback_hint">Approximate route (navigation service unavailable)</string>
+    <string name="route_recalculate">Recalculate route</string>
+    <string name="route_error">Couldn\'t calculate route</string>
+
+    <!-- Navigation -->
+    <string name="nav_title">Navigation</string>
+    <string name="nav_starting">Starting navigation…</string>
+    <string name="nav_arrived">You have arrived</string>
+    <string name="nav_rerouting">Recalculating route…</string>
+    <string name="nav_stop">Stop navigation</string>
+    <string name="nav_remaining">Remaining</string>
+    <string name="nav_continue_straight">Continue straight</string>
+
+    <!-- Arrival Detection -->
+    <string name="arrival_detected">You\'ve arrived at the customer\'s location</string>
+    <string name="arrival_distance">Distance to customer: %1$s</string>
+    <string name="arrival_warming_up">Determining your location…</string>
+    <string name="arrival_suggestion">It looks like you\'ve arrived. Tap \"I arrived\" to confirm.</string>
+
+    <!-- History -->
+    <string name="history_tab_today">Today</string>
+    <string name="history_tab_week">Week</string>
+    <string name="history_tab_month">Month</string>
+    <string name="history_stats_total">Total</string>
+    <string name="history_stats_completed">Completed</string>
+    <string name="history_stats_cancelled">Cancelled</string>
+    <string name="history_stats_completion_rate">Completion rate</string>
+    <string name="history_empty">No deliveries in this period</string>
+    <string name="history_delivery_time">Time</string>
+
+    <!-- Settings -->
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System default</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_gps_threshold">GPS accuracy threshold</string>
+    <string name="settings_gps_threshold_desc">Maximum acceptable accuracy when capturing customer location (meters)</string>
+    <string name="settings_arrival_radius">Arrival radius</string>
+    <string name="settings_arrival_radius_desc">Distance at which the driver is considered arrived at the customer (meters)</string>
+    <string name="settings_retry_sync">Retry sync</string>
+    <string name="settings_retry_sync_desc">Manually sync all pending operations</string>
+    <string name="settings_logout">Log out</string>
+    <string name="settings_logout_confirm">Log out? All local data will be cleared.</string>
+    <string name="settings_logout_yes">Log out</string>
+    <string name="settings_app_version">App version</string>
+</resources>

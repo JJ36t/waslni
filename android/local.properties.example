@@ -1,0 +1,4 @@
+# local.properties — copy this to local.properties and fill in your Mapbox token
+# DO NOT commit local.properties to git!
+
+MAPBOX_ACCESS_TOKEN=pk.eyJ1Ijoi...

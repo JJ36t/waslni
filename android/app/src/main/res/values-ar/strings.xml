@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">وصلني</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">الخريطة</string>
+    <string name="nav_customers">الزبائن</string>
+    <string name="nav_history">السجل</string>
+    <string name="nav_settings">الإعدادات</string>
+
+    <!-- Login -->
+    <string name="login_subtitle">سجّل الدخول للمتابعة</string>
+    <string name="username">اسم المستخدم</string>
+    <string name="password">كلمة المرور</string>
+    <string name="login_button">تسجيل الدخول</string>
+    <string name="toggle_password_visibility">إظهار/إخفاء كلمة المرور</string>
+
+    <!-- Home -->
+    <string name="search_customer_hint">ابحث عن زبون بالاسم أو الرقم</string>
+    <string name="map_placeholder">الخريطة ستظهر هنا</string>
+    <string name="add_customer">إضافة زبون</string>
+
+    <!-- Customer -->
+    <string name="add_customer_title">إضافة زبون جديد</string>
+    <string name="customer_name">اسم الزبون</string>
+    <string name="customer_phone">رقم الموبايل</string>
+    <string name="customer_location">الموقع</string>
+    <string name="customers_empty">لا يوجد زبائن بعد</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+
+    <!-- History -->
+    <string name="history_empty">لا توجد توصيلات بعد</string>
+
+    <!-- Common -->
+    <string name="retry">إعادة المحاولة</string>
+    <string name="loading">جاري التحميل…</string>
+    <string name="error_generic">حدث خطأ غير متوقع</string>
+
+    <!-- Location -->
+    <string name="location_rationale_title">نحتاج صلاحية الموقع</string>
+    <string name="location_rationale_message">يحتاج التطبيق إلى موقعك لتحديد موقعك الحالي وحساب الطريق إلى الزبون. لا نشارك موقعك مع أي طرف ثالث.</string>
+    <string name="location_rationale_confirm">سماح</string>
+    <string name="location_permission_denied_title">تم رفض صلاحية الموقع</string>
+    <string name="location_permission_denied_message">لا يمكن استخدام التطبيق بدون صلاحية الموقع. يمكنك منحها من الإعدادات.</string>
+    <string name="location_permission_open_settings">فتح الإعدادات</string>
+    <string name="location_permission_dismiss">إغلاق</string>
+    <string name="gps_disabled_title">الـGPS معطل</string>
+    <string name="gps_disabled_message">يرجى تفعيل خدمات الموقع من إعدادات الجهاز حتى نتمكن من تحديد موقعك.</string>
+    <string name="gps_disabled_open_settings">فتح إعدادات الموقع</string>
+    <string name="location_timeout_title">تعذر تحديد الموقع</string>
+    <string name="location_timeout_message">استغرق الحصول على الموقع وقتًا طويلًا. تأكد من أنك في مكان مفتوح وحاول مرة أخرى.</string>
+    <string name="location_unknown_error">تعذر الحصول على الموقع. حاول مرة أخرى.</string>
+
+    <!-- Location capture -->
+    <string name="capture_location">التقاط الموقع</string>
+    <string name="capturing_location">جاري تحديد موقعك…</string>
+    <string name="location_accuracy_label">الدقة</string>
+    <string name="location_accuracy_excellent">ممتازة</string>
+    <string name="location_accuracy_good">جيدة</string>
+    <string name="location_accuracy_poor">ضعيفة</string>
+    <string name="location_accuracy_poor_message">دقة الموقع منخفضة (%1$.1fm). انتظر لحظة وحاول مرة أخرى.</string>
+    <string name="location_capture_again">إعادة الالتقاط</string>
+    <string name="location_confirm">تأكيد الموقع</string>
+
+    <!-- Map / Home -->
+    <string name="map_driver_location">موقعك الحالي</string>
+    <string name="map_customer_marker">زبون</string>
+    <string name="map_active_marker">توصيل نشط</string>
+    <string name="map_no_customers_hint">أضف زبونًا جديدًا للبدء</string>
+    <string name="customer_call">اتصال</string>
+    <string name="customer_start_delivery">بدء التوصيل</string>
+    <string name="customer_view_details">التفاصيل</string>
+
+    <!-- Customer Details -->
+    <string name="customer_details_title">تفاصيل الزبون</string>
+    <string name="customer_gps_accuracy">دقة GPS</string>
+    <string name="customer_last_updated">آخر تحديث</string>
+    <string name="customer_edit">تعديل</string>
+    <string name="customer_delete">حذف</string>
+    <string name="customer_delete_confirm_title">حذف الزبون</string>
+    <string name="customer_delete_confirm_message">هل تريد حذف \"%1$s\"؟ لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="customer_delete_button">حذف</string>
+    <string name="customer_loading">جاري التحميل…</string>
+    <string name="customer_not_found">الزبون غير موجود</string>
+
+    <!-- Edit Customer -->
+    <string name="edit_customer_title">تعديل الزبون</string>
+    <string name="update_location">تحديث الموقع</string>
+
+    <!-- Sync status -->
+    <string name="sync_pending_count">%1$d بانتظار المزامنة</string>
+    <string name="sync_online">متصل</string>
+    <string name="sync_offline">غير متصل</string>
+    <string name="sync_in_progress">جاري المزامنة…</string>
+
+    <!-- Active Delivery -->
+    <string name="active_delivery_title">التوصيل النشط</string>
+    <string name="delivery_status_on_the_way">في الطريق</string>
+    <string name="delivery_status_arrived">وصلت</string>
+    <string name="delivery_status_delivered">تم التسليم</string>
+    <string name="delivery_status_cancelled">ملغى</string>
+    <string name="delivery_mark_arrived">وصلت إلى الزبون</string>
+    <string name="delivery_complete">تم التسليم</string>
+    <string name="delivery_cancel">إلغاء التوصيل</string>
+    <string name="delivery_cancel_confirm">هل تريد إلغاء هذا التوصيل؟</string>
+    <string name="delivery_started_at">بدأ في: %1$s</string>
+    <string name="delivery_arrived_at">وصل في: %1$s</string>
+    <string name="delivery_completed_at">اكتمل في: %1$s</string>
+    <string name="delivery_not_found">التوصيل غير موجود</string>
+    <string name="delivery_finished">تم إنهاء التوصيل</string>
+
+    <!-- Home active delivery banner -->
+    <string name="active_delivery_banner">لديك توصيل نشط</string>
+    <string name="active_delivery_continue">متابعة التوصيل</string>
+
+    <!-- Routing / ETA -->
+    <string name="route_calculating">جاري حساب الطريق…</string>
+    <string name="route_distance">المسافة</string>
+    <string name="route_eta">الوقت المتوقع</string>
+    <string name="route_fallback_hint">مسار تقريبي (غير متصل بخدمة الملاحة)</string>
+    <string name="route_recalculate">إعادة حساب الطريق</string>
+    <string name="route_error">تعذر حساب الطريق</string>
+
+    <!-- Navigation -->
+    <string name="nav_title">الملاحة</string>
+    <string name="nav_starting">جاري بدء الملاحة…</string>
+    <string name="nav_arrived">وصلت إلى وجهتك</string>
+    <string name="nav_rerouting">جاري إعادة حساب المسار…</string>
+    <string name="nav_stop">إيقاف الملاحة</string>
+    <string name="nav_remaining">المتبقي</string>
+    <string name="nav_continue_straight">تابع بشكل مستقيم</string>
+
+    <!-- Arrival Detection -->
+    <string name="arrival_detected">وصلت إلى موقع الزبون</string>
+    <string name="arrival_distance">المسافة للزبون: %1$s</string>
+    <string name="arrival_warming_up">جاري تحديد موقعك…</string>
+    <string name="arrival_suggestion">يبدو أنك وصلت. اضغط \"وصلت إلى الزبون\" للتأكيد.</string>
+
+    <!-- History -->
+    <string name="history_tab_today">اليوم</string>
+    <string name="history_tab_week">الأسبوع</string>
+    <string name="history_tab_month">الشهر</string>
+    <string name="history_stats_total">الإجمالي</string>
+    <string name="history_stats_completed">المكتملة</string>
+    <string name="history_stats_cancelled">الملغاة</string>
+    <string name="history_stats_completion_rate">نسبة الإكمال</string>
+    <string name="history_empty">لا توجد توصيلات في هذه الفترة</string>
+    <string name="history_delivery_time">الوقت</string>
+
+    <!-- Settings -->
+    <string name="settings_theme">المظهر</string>
+    <string name="settings_theme_system">حسب النظام</string>
+    <string name="settings_theme_light">فاتح</string>
+    <string name="settings_theme_dark">داكن</string>
+    <string name="settings_gps_threshold">حد دقة GPS</string>
+    <string name="settings_gps_threshold_desc">أقصى دقة مقبولة عند التقاط موقع الزبون (بالأمتار)</string>
+    <string name="settings_arrival_radius">نطاق الوصول</string>
+    <string name="settings_arrival_radius_desc">المسافة التي يُعتبر فيها المندوب واصلاً إلى الزبون (بالأمتار)</string>
+    <string name="settings_retry_sync">إعادة المزامنة</string>
+    <string name="settings_retry_sync_desc">مزامنة جميع العمليات المعلقة يدويًا</string>
+    <string name="settings_logout">تسجيل الخروج</string>
+    <string name="settings_logout_confirm">هل تريد تسجيل الخروج؟ سيتم مسح جميع البيانات المحلية.</string>
+    <string name="settings_logout_yes">خروج</string>
+    <string name="settings_app_version">إصدار التطبيق</string>
+</resources>

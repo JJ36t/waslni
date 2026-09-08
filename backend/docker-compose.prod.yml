@@ -1,0 +1,102 @@
+# docker-compose.prod.yml — Production deployment for Waselni backend.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Requires:
+#   - .env.production file with real secrets (DATABASE_URL, JWT_SECRET, etc.)
+#   - SSL certificates at /etc/letsencrypt/live/api.waslni.com/
+#   - Nginx config at ./nginx/nginx.conf
+#
+# Services:
+#   - db: PostgreSQL 15 (persistent volume, health check)
+#   - backend: FastAPI (Gunicorn + Uvicorn workers, 4 processes)
+#   - nginx: reverse proxy (HTTPS termination, rate limiting, static files)
+#
+# The backend reads .env.production for all configuration.
+# Nginx terminates SSL and proxies to the backend on port 8000.
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: waselni-prod-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-waselni}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-waslni}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backups:/backups  # mount for backup script access
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-waselni} -d ${POSTGRES_DB:-waslni}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Don't expose DB port to the host — only accessible within the Docker network.
+    # If you need external access (e.g. for pgAdmin), use a SSH tunnel instead.
+    networks:
+      - waselni-prod
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: waselni-prod-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-waselni}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-waslni}
+    # Gunicorn with 4 Uvicorn worker processes — handles ~1000 concurrent requests.
+    # Adjust workers based on CPU cores: workers = (2 * cores) + 1
+    command: >
+      gunicorn app.main:app
+      --bind 0.0.0.0:8000
+      --workers 4
+      --worker-class uvicorn.workers.UvicornWorker
+      --timeout 120
+      --keep-alive 5
+      --max-requests 1000
+      --max-requests-jitter 100
+      --log-level info
+    volumes:
+      - ./app:/app/app:ro  # read-only mount for hot code updates without rebuild
+    networks:
+      - waselni-prod
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: waselni-prod-nginx
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - waselni-prod
+
+volumes:
+  postgres-data:
+
+networks:
+  waselni-prod:
+    driver: bridge
